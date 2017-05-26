@@ -60,7 +60,7 @@ mean.rich.amphib <- st_intersection(rich.amphib, sample20) %>%  # intersect PAs 
     # find congressional districts that overlap each PA (or within a certain distance?) (st_intersection? st_extract?)
     # calculate mean lcv score (area-weighted?) for congressional districts overlapping the PA during that congressional term
 
-# Extractives sector dominance
+# Sector dominance
 
 
 

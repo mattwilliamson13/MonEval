@@ -66,10 +66,10 @@ states <- st_read("C:/Work/SpatialData/Boundaries/States/states_albers.shp") %>%
 lower48 <- st_union(states, by_feature=FALSE)# create outline polygon for lower 48 states
 
 # LCV scores
-lcv <- st_read()
+lcv <- st_read()  # shapefile has states as polygon features, and min, mean, max LCV score (across years and districts within each state) as attributes
 
 # natural resource sector revenue by county
-revenue <- st_read()
+sectordom <- st_read()  # shapefile has counties as polygon features, and sector dominance in each period as attribute (we will extract)
 
 
 ### REPROJECT SPATIAL LAYERS TO COMMON PROJECTION ###
@@ -118,7 +118,7 @@ options(warn=0)  # turn warnings back on
 
 ### CROP INPUT LAYERS TO LOWER 48 ###
 
-croplayernames <- c("PA","climate","fedlands","natlandcover","bailey")
+croplayernames <- c("PA","climate","fedlands","natlandcover","bailey")  # names of layers you want to crop
 lower48.sp <- as(lower48, "Spatial") # convert lower48 sf layer to sp (so extent can be extracted by crop function)
 for(k in 1:length(croplayernames)) {
   sp.input <- as(get(croplayernames[k]), "Spatial")
@@ -136,4 +136,6 @@ PA <- mutate(PA, area_ac = as.numeric(area_m2/4046.86))
 PA <- filter(PA, area_ac >= 5000)
 
 
+
+# Either save as workspace, or write prepped sf and raster objects to some output folder if total workspace size is too large
 
