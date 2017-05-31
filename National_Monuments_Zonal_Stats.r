@@ -31,7 +31,7 @@ for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
 # note that this only works for sp class, not sf
 ecol.systems <- raster::extract(natlandcover, PA.sp, na.rm=TRUE)  # list of ecological systems (by ID) within each PA
 system.diversity <- lapply(ecol.systems, function(x) length(unique(x)))  # number of different systems within each PA
-
+# THIS IS TOO SIMPLE - DOES NOT ACCOUNT FOR FACT THAT PA SIZE IS HIGHLY VARIABLE, AND ECOL SYSTEM DIVERSITY DEPENDS ON SIZE
 
 ### PA ZONAL STATISTICS FOR VECTOR INPUTS ###
 
