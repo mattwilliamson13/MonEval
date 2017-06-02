@@ -13,35 +13,42 @@ library(tidyverse)
 library(rvest)
 library(maptools)
 
+infolder <- "G:/NationalMonumentsData/" # folder where spatial data input layers are stored; 
+                                        # MUST HAVE FORWARD SLASH AT END OF PATH
 
 ######################################################################################################
 ### DATA PREP
 ######################################################################################################
 
+
 #### LOAD DATA ###
 
 # PAs (selected categories)
-PA <- st_read("C:/Work/SpatialData/NationalMonuments/Federal_PAs_5-12-17.shp")
+PA <- st_read(paste(infolder,"Federal_PAs_5-12-17.shp", sep=""))
+PA <- PA %>%  # get rid of PAs smaller than 5,000 acres (minimum for wilderness designation)
+  mutate(area_m2 = as.numeric(st_area(geometry))) %>%
+  mutate(area_ac = as.numeric(area_m2/4046.86)) %>%
+  filter(area_ac >= 5000)
 
 # Federal lands (regardless of protection status, from PADUS-CBI)
-fedlands <- readOGR("C:/Work/SpatialData/NationalMonuments/PADUS_CBIEdition_v2_1_rs_update_2016-09-07/CBI_federal_lands.shp")
+fedlands <- readOGR(paste(infolder,"CBI_federal_lands.shp", sep=""))
 fedlands <- as(fedlands, "sf")  # reading in directly as sf produces an error due to null geometries; read in with rgdal, then convert to sf
 fedlands <- st_union(fedlands, by_feature=FALSE)
 
 # backwards climate velocity (AdaptWest)
-climate <- raster("C:/Work/SpatialData/NationalMonuments/bwvelocityrefugiaindex/bwvelocityrefugiaindex.asc")  # raster of backward climate velocity (refugia value)
+climate <- raster(paste(infolder,"bwvelocityrefugiaindex.asc", sep=""))  # raster of backward climate velocity (refugia value)
 crs(climate) <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"  # this layer is missing projection info, but should be in Lambert Azimuthal Equal Area
 
 # species richness (Jenkins et al - note that data are vector format for fish and amphibians, raster for the rest)
-rich.amphib <- st_read("C:/Work/SpatialData/NationalMonuments/JenkinsBiodiversityUSA/GeoTIFFs_and_shapefiles/Amphibians_total_richness.shp")
-rich.fish <- st_read("C:/Work/SpatialData/NationalMonuments/JenkinsBiodiversityUSA/GeoTIFFs_and_shapefiles/Fish_total_richness.shp")
-rich.bird <- raster("C:/Work/SpatialData/NationalMonuments/JenkinsBiodiversityUSA/GeoTIFFs_and_shapefiles/Birds_total_richness.tif") 
-rich.mammal <- raster("C:/Work/SpatialData/NationalMonuments/JenkinsBiodiversityUSA/GeoTIFFs_and_shapefiles/Mammals_total_richness.tif")  
-rich.reptile <- raster("C:/Work/SpatialData/NationalMonuments/JenkinsBiodiversityUSA/GeoTIFFs_and_shapefiles/Reptiles_total_richness.tif") 
-rich.tree <- raster("C:/Work/SpatialData/NationalMonuments/JenkinsBiodiversityUSA/GeoTIFFs_and_shapefiles/Trees_total_richness.tif")
+rich.amphib <- st_read(paste(infolder,"Amphibians_total_richness.shp",sep=""))
+rich.fish <- st_read(paste(infolder,"Fish_total_richness.shp",sep=""))
+rich.bird <- raster(paste(infolder,"Birds_total_richness.tif",sep=""))
+rich.mammal <- raster(paste(infolder,"Mammals_total_richness.tif",sep=""))  
+rich.reptile <- raster(paste(infolder,"Reptiles_total_richness.tif",sep=""))
+rich.tree <- raster(paste(infolder,"Trees_total_richness.tif",sep=""))
 
 # GAP landcover
-landcover <- raster("C:/Work/SpatialData/NationalMonuments/Nat_GAP_LandCover/lwr48_v2_2_1")
+landcover <- raster(paste(infolder,"lwr48_v2_2_1", sep=""))
 # remove open water, developed, ag, disturbed cover types
 lc.att <- as.data.frame(levels(landcover))  # get attribute table (and convert to df)
 IDs.to.remove <- lc.att$ID[which(lc.att$NVC_CLASS %in% c("Agricultural Vegetation","Developed & Other Human Use", "Open Water", "Recently Disturbed or Modified"))]
@@ -52,24 +59,23 @@ natlandcover <- reclassify(landcover, rcl)
 
 # Bailey's ecoregion provinces (for standardizing ecological values by major ecoregional differences)
 # dissolve by province
-bailey <- st_read("C:/Work/SpatialData/NationalMonuments/bailey_ecoregions/eco_us.shp")
+bailey <- st_read(paste(infolder,"eco_us.shp",sep=""))
 bailey.sp <- as(bailey, "Spatial")
 bailey.dissolve <- aggregate(bailey.sp, list(bailey.sp$PROVINCE), FUN = function(x) x[1], dissolve = TRUE)
 bailey <- as(bailey.dissolve, "sf")
 bailey <- select(bailey, PROVINCE)
 
 # US states
-#remove islands (HA, PR, VI) and AK, then dissolve
-'%notin%' <- function(x,y) !(x %in% y)
-states <- st_read("C:/Work/SpatialData/Boundaries/States/states_albers.shp") %>%
+'%notin%' <- function(x,y) !(x %in% y)  #remove islands (HA, PR, VI) and AK, then dissolve
+states <- st_read(paste(infolder,"states_albers.shp",sep="")) %>%
   filter(STATE %notin% c("Hawaii","Puerto Rico","U.S. Virgin Islands", "Alaska"))
 lower48 <- st_union(states, by_feature=FALSE)# create outline polygon for lower 48 states
 
 # LCV scores
-lcv <- st_read()  # shapefile has states as polygon features, and min, mean, max LCV score (across years and districts within each state) as attributes
+lcv <- st_read(paste(infolder,"   "))  # shapefile has states as polygon features, and min, mean, max LCV score (across years and districts within each state) as attributes
 
-# natural resource sector revenue by county
-sectordom <- st_read()  # shapefile has counties as polygon features, and sector dominance in each period as attribute (we will extract)
+# natural resources sector revenue by county
+sectordom <- st_read(paste(infolder,"   "))  # shapefile has counties as polygon features, and sector dominance in each period as attribute (we will extract)
 
 
 ### REPROJECT SPATIAL LAYERS TO COMMON PROJECTION ###
@@ -77,19 +83,22 @@ sectordom <- st_read()  # shapefile has counties as polygon features, and sector
 # use the Lambert Azimuthal Equal Area projection that the AdaptWest climate data are in (equal area good for zonal statistics)
 newproj <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
 
-# reproject rasters (use method="ngb" for categorical variables, method="bilinear" for continuous variables)
-rich.mammal <- projectRaster(rich.mammal, crs=newproj, method="bilinear")
-rich.bird <- projectRaster(rich.bird, crs=newproj, method="bilinear")
-rich.tree <- projectRaster(rich.tree, crs=newproj, method="bilinear")
-natlandcover <- projectRaster(natlandcover, crs=newproj, method="ngb")
+shapefiles <- c("PA","lower48","rich.fish","rich.amphib","bailey","fedlands","sectordom","lcv")  # names of shapefiles to reproject
+cat.rasters <- c("natlandcover")  # names of categorical rasters to reproject
+cont.rasters <- c("rich.mammal", "rich.bird", "rich.tree", "rich.reptile")   # names of continuous rasters to reproject
 
-# reproject shapefiles
-PA <- st_transform(PA, crs=newproj)
-lower48 <- st_transform(lower48, crs=newproj)
-rich.fish <- st_transform(rich.fish, crs=newproj)
-rich.amphib <- st_transform(rich.amphib, crs=newproj)
-bailey <- st_transform(bailey, crs=newproj)
-fedlands <- st_transform(fedlands, crs=newproj)
+for(i in 1:length(shapefiles)) {   # reproject shapefiles
+  reproj <- st_transform(get(shapefiles[i]), crs=newproj)
+  assign(shapefiles[i], reproj)
+}
+for(j in 1:length(cat.rasters)) {   # reproject categorical rasters
+  reproj2 <- projectRaster(get(cat.rasters[j]), crs=newproj, method="ngb")
+  assign(cat.rasters[j], reproj2)
+}
+for(k in 1:length(cont.rasters)) {   # reproject categorical rasters
+  reproj3 <- projectRaster(get(cont.rasters[k]), crs=newproj, method="bilinear")
+  assign(cont.rasters[k], reproj3)
+}
 
 
 ### CHECK FOR INVALID GEOMETRIES IN SF LAYERS ###
@@ -128,14 +137,8 @@ for(k in 1:length(croplayernames)) {
 }
 
 
-### FILTER PAs LAYER BY SIZE ###
+### SAVE FINAL OBJECTS TO WORKSPACE
 
-# get rid of PAs smaller than 5,000 acres (minimum for wilderness designation)
-PA <- mutate(PA, area_m2 = as.numeric(st_area(geometry)))
-PA <- mutate(PA, area_ac = as.numeric(area_m2/4046.86))
-PA <- filter(PA, area_ac >= 5000)
-
-
-
-# Either save as workspace, or write prepped sf and raster objects to some output folder if total workspace size is too large
-
+keepers <- c("PA","lower48","rich.fish","rich.amphib","bailey","fedlands","sectordom","lcv","natlandcover","rich.mammal", "rich.bird", "rich.tree", "rich.reptile","climate")   # list of objects we want to save (this will be input to zonal stats script)
+outfile <- "C:/Users/Tyler/Desktop/NatMon_prepped_data.RData"  # path for saved workspace
+save(list=keepers, file=outfile)
