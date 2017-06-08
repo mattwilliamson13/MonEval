@@ -50,4 +50,15 @@ hse.sum <- LCVhse %>%
         lower25LCV = quantile(LCVScore, probs=0.25, na.rm=TRUE))
 
   #generate state level summaries for the senate
-  
+LCVsen$LCVScore <- as.numeric(as.character(LCVsen$LCVScore))
+sen.sum <- LCVsen %>%
+      group_by(State) %>%
+      summarise(
+        meanLCV = mean(LCVScore, na.rm=TRUE),
+        maxLCV = max(LCVScore, na.rm=TRUE),
+        minLCV = min(LCVScore,na.rm=TRUE),
+        medianLCV = median(LCVScore,na.rm=TRUE),
+        upper90LCV = quantile(LCVScore, probs=0.9, na.rm=TRUE),
+        lower10LCV = quantile(LCVScore, probs=0.1, na.rm=TRUE),
+        upper75LCV = quantile(LCVScore, probs=0.75, na.rm=TRUE),
+        lower25LCV = quantile(LCVScore, probs=0.25, na.rm=TRUE))
