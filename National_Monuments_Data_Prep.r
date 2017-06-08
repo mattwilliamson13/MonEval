@@ -13,9 +13,9 @@ library(tidyverse)
 library(rvest)
 library(maptools)
 
-infolder <- "G:/NationalMonumentsData/" # folder where spatial data input layers are stored; 
+infolder <- "G:/NationalMonumentsData/" # folder where spatial data input layers are stored;
                                         # MUST HAVE FORWARD SLASH AT END OF PATH
-
+infolder <- "D:/Data/MonumentData/"  # location on Schwartz server
 ######################################################################################################
 ### DATA PREP
 ######################################################################################################
@@ -34,6 +34,7 @@ PA <- PA %>%  # get rid of PAs smaller than 5,000 acres (minimum for wilderness 
 fedlands <- readOGR(paste(infolder,"CBI_federal_lands.shp", sep=""))
 fedlands <- as(fedlands, "sf")  # reading in directly as sf produces an error due to null geometries; read in with rgdal, then convert to sf
 fedlands <- st_union(fedlands, by_feature=FALSE)
+st_write(fedlands, "D:/Data/MonumentData/Generated Data/fedlands.shp")
 
 # backwards climate velocity (AdaptWest)
 climate <- raster(paste(infolder,"bwvelocityrefugiaindex.asc", sep=""))  # raster of backward climate velocity (refugia value)
@@ -43,7 +44,7 @@ crs(climate) <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +ellps=WGS84 +un
 rich.amphib <- st_read(paste(infolder,"Amphibians_total_richness.shp",sep=""))
 rich.fish <- st_read(paste(infolder,"Fish_total_richness.shp",sep=""))
 rich.bird <- raster(paste(infolder,"Birds_total_richness.tif",sep=""))
-rich.mammal <- raster(paste(infolder,"Mammals_total_richness.tif",sep=""))  
+rich.mammal <- raster(paste(infolder,"Mammals_total_richness.tif",sep=""))
 rich.reptile <- raster(paste(infolder,"Reptiles_total_richness.tif",sep=""))
 rich.tree <- raster(paste(infolder,"Trees_total_richness.tif",sep=""))
 
@@ -61,9 +62,9 @@ natlandcover <- reclassify(landcover, rcl)
 # dissolve by province
 bailey <- st_read(paste(infolder,"eco_us.shp",sep=""))
 bailey.sp <- as(bailey, "Spatial")
-bailey.dissolve <- aggregate(bailey.sp, list(bailey.sp$PROVINCE), FUN = function(x) x[1], dissolve = TRUE)
+bailey.dissolve <- aggregate(bailey.sp, list(bailey.sp$DIVISION), FUN = function(x) x[1], dissolve = TRUE)
 bailey <- as(bailey.dissolve, "sf")
-bailey <- select(bailey, PROVINCE)
+bailey <- select(bailey, DEVISION)
 
 # US states
 '%notin%' <- function(x,y) !(x %in% y)  #remove islands (HA, PR, VI) and AK, then dissolve
@@ -118,10 +119,10 @@ for(i in 1:length(geomlayernames)) {
       print(paste("Geometry corrected for layer ", geomlayernames[i], sep=""))
     } else {
       stop(paste("Unable to correct geometry for layer ",geomlayernames[i],"!!!", sep=""))
-    }  
+    }
     rm(temp1, temp2, temp3)
   }
-}                    
+}
 options(warn=0)  # turn warnings back on
 
 
