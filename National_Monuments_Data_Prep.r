@@ -13,9 +13,9 @@ library(tidyverse)
 library(rvest)
 library(maptools)
 
-infolder <- "G:/NationalMonumentsData/" # folder where spatial data input layers are stored; 
+infolder <- "G:/NationalMonumentsData/" # folder where spatial data input layers are stored;
                                         # MUST HAVE FORWARD SLASH AT END OF PATH
-
+infolder <- "D:/Data/MonumentData/"  # location on Schwartz server
 ######################################################################################################
 ### DATA PREP
 ######################################################################################################
@@ -34,6 +34,9 @@ PA <- PA %>%  # get rid of PAs smaller than 5,000 acres (minimum for wilderness 
 fedlands <- readOGR(paste(infolder,"CBI_federal_lands.shp", sep=""))
 fedlands <- as(fedlands, "sf")  # reading in directly as sf produces an error due to null geometries; read in with rgdal, then convert to sf
 fedlands <- st_union(fedlands, by_feature=FALSE)
+st_write(fedlands, "D:/Data/MonumentData/Generated Data/fedlands.shp")
+
+fedlands <- st_read("D:/Data/MonumentData/Generated Data/fedlands.shp") #necessary to reload files
 
 # backwards climate velocity (AdaptWest)
 climate <- raster(paste(infolder,"bwvelocityrefugiaindex.asc", sep=""))  # raster of backward climate velocity (refugia value)
@@ -43,7 +46,7 @@ crs(climate) <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +ellps=WGS84 +un
 rich.amphib <- st_read(paste(infolder,"Amphibians_total_richness.shp",sep=""))
 rich.fish <- st_read(paste(infolder,"Fish_total_richness.shp",sep=""))
 rich.bird <- raster(paste(infolder,"Birds_total_richness.tif",sep=""))
-rich.mammal <- raster(paste(infolder,"Mammals_total_richness.tif",sep=""))  
+rich.mammal <- raster(paste(infolder,"Mammals_total_richness.tif",sep=""))
 rich.reptile <- raster(paste(infolder,"Reptiles_total_richness.tif",sep=""))
 rich.tree <- raster(paste(infolder,"Trees_total_richness.tif",sep=""))
 
@@ -55,15 +58,20 @@ IDs.to.remove <- lc.att$ID[which(lc.att$NVC_CLASS %in% c("Agricultural Vegetatio
 rcl <- matrix(nrow=length(IDs.to.remove), ncol=2)
 rcl[,1] <- IDs.to.remove
 rcl[,2] <- NA
-natlandcover <- reclassify(landcover, rcl)
+rcl.df <- as.data.frame(rcl)
+colnames(rcl.df) <- c("from", "to")
+natlandcover <- subs(landcover, rcl.df, by=1, which=2, subsWithNA=FALSE)
+writeRaster(natlandcover, "D:/Data/MonumentData/Generated Data/natlandcvr.tif",format="GTiff",prj=TRUE)
+
+natlandcover <- raster("D:/Data/MonumentData/Generated Data/natlandcvr.tif")
 
 # Bailey's ecoregion provinces (for standardizing ecological values by major ecoregional differences)
 # dissolve by province
 bailey <- st_read(paste(infolder,"eco_us.shp",sep=""))
 bailey.sp <- as(bailey, "Spatial")
-bailey.dissolve <- aggregate(bailey.sp, list(bailey.sp$PROVINCE), FUN = function(x) x[1], dissolve = TRUE)
+bailey.dissolve <- aggregate(bailey.sp, list(bailey.sp$DIVISION), FUN = function(x) x[1], dissolve = TRUE)
 bailey <- as(bailey.dissolve, "sf")
-bailey <- select(bailey, PROVINCE)
+bailey <- select(bailey, DIVISION)
 
 # US states
 '%notin%' <- function(x,y) !(x %in% y)  #remove islands (HA, PR, VI) and AK, then dissolve
@@ -81,20 +89,20 @@ sectordom <- st_read(paste(infolder,"   "))  # shapefile has counties as polygon
 ### REPROJECT SPATIAL LAYERS TO COMMON PROJECTION ###
 
 # use the Lambert Azimuthal Equal Area projection that the AdaptWest climate data are in (equal area good for zonal statistics)
-newproj <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
+newproj <- proj4string(natlandcover)
 
-shapefiles <- c("PA","lower48","rich.fish","rich.amphib","bailey","fedlands","sectordom","lcv")  # names of shapefiles to reproject
-cat.rasters <- c("natlandcover")  # names of categorical rasters to reproject
-cont.rasters <- c("rich.mammal", "rich.bird", "rich.tree", "rich.reptile")   # names of continuous rasters to reproject
+shapefiles <- c("PA","lower48","rich.fish","rich.amphib","bailey","fedlands")  # names of shapefiles to reproject ,"sectordom","lcv"
+#cat.rasters <- c("natlandcover")  # names of categorical rasters to reproject
+cont.rasters <- c("rich.mammal", "rich.bird", "rich.tree", "rich.reptile", "climate")   # names of continuous rasters to reproject
 
 for(i in 1:length(shapefiles)) {   # reproject shapefiles
   reproj <- st_transform(get(shapefiles[i]), crs=newproj)
   assign(shapefiles[i], reproj)
 }
-for(j in 1:length(cat.rasters)) {   # reproject categorical rasters
-  reproj2 <- projectRaster(get(cat.rasters[j]), crs=newproj, method="ngb")
-  assign(cat.rasters[j], reproj2)
-}
+#for(j in 1:length(cat.rasters)) {   # reproject categorical rasters
+#  reproj2 <- projectRaster(get(cat.rasters[j]), crs=newproj, method="ngb")
+#  assign(cat.rasters[j], reproj2)
+#}
 for(k in 1:length(cont.rasters)) {   # reproject categorical rasters
   reproj3 <- projectRaster(get(cont.rasters[k]), crs=newproj, method="bilinear")
   assign(cont.rasters[k], reproj3)
@@ -103,7 +111,7 @@ for(k in 1:length(cont.rasters)) {   # reproject categorical rasters
 
 ### CHECK FOR INVALID GEOMETRIES IN SF LAYERS ###
 
-geomlayernames <- c("bailey","rich.amphib")  # names of layers you want to check
+geomlayernames <- c("PA","lower48","rich.fish","rich.amphib","bailey","fedlands")  # names of layers you want to check
 options(warn=-1)  # temporarily turn off warnings
 for(i in 1:length(geomlayernames)) {
   if(length(which(st_is_valid(get(geomlayernames[i]))==FALSE))==0) {
@@ -118,10 +126,10 @@ for(i in 1:length(geomlayernames)) {
       print(paste("Geometry corrected for layer ", geomlayernames[i], sep=""))
     } else {
       stop(paste("Unable to correct geometry for layer ",geomlayernames[i],"!!!", sep=""))
-    }  
+    }
     rm(temp1, temp2, temp3)
   }
-}                    
+}
 options(warn=0)  # turn warnings back on
 
 
