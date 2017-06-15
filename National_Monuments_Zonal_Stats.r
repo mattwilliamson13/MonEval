@@ -15,6 +15,8 @@ library(maptools)
 
 load() # load workspace with prepped input layers
 
+rasterOptions(progress="text", overwrite=TRUE)
+
 
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
 
@@ -30,7 +32,7 @@ for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
 # Calculate number of ecological systems represented within each PA polygon
 # note that this only works for sp class, not sf
 ecol.systems <- raster::extract(natlandcover, PA.sp, na.rm=TRUE)  # list of ecological systems (by ID) within each PA
-system.diversity <- lapply(ecol.systems, function(x) length(unique(x)))  # number of different systems within each PA
+system.richness <- lapply(ecol.systems, function(x) length(unique(x)))  # number of different systems within each PA
 # THIS IS TOO SIMPLE - DOES NOT ACCOUNT FOR FACT THAT PA SIZE IS HIGHLY VARIABLE, AND ECOL SYSTEM DIVERSITY DEPENDS ON SIZE
   # new steps needed:
   # 1. Extract all lands within each Bailey's province
@@ -39,10 +41,10 @@ system.diversity <- lapply(ecol.systems, function(x) length(unique(x)))  # numbe
   # 4. Calculate rarity-weighted richness of ecological systems: summation of 1/Ci (where Ci is the area of system i within the province)
   # 5. Standardize rarity-weighted richness by area of PA (to account for fact that larger areas should have greater representation of systems by virtue of size alone)
   # 6. Repeat calculation but use all fed lands within the province, rather than a specific PA
-bailey.sp <- as(bailey, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
+bailey.sp <- as(bailey, "SpatialPolygons") # convert sf polygon layer to a spatial layer first (required for extract function)
 tempA <- raster::extract(natlandcover, bailey.sp, na.rm=TRUE) # list of ecological systems within each Bailey's province
-tempB <- lapply(tempA, function(x), length(x))  # area of province (in # of cells from natlandcover)
-tempC <- lapply(tempA, function(x), table(x))  # get number of cells of each ecological system within the province
+tempB <- lapply(tempA, function(x) length(x))  # area of province (in # of cells from natlandcover)
+tempC <- lapply(tempA, function(x) table(x))  # get number of cells of each ecological system within the province
 tempD <- raster::extract(natlandcover, PA.sp, na.rm=TRUE)
 
 ### PA ZONAL STATISTICS FOR VECTOR INPUTS ###
