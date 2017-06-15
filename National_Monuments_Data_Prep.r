@@ -111,7 +111,7 @@ for(k in 1:length(cont.rasters)) {   # reproject categorical rasters
 
 ### CHECK FOR INVALID GEOMETRIES IN SF LAYERS ###
 
-geomlayernames <- c("PA","lower48","rich.fish","rich.amphib","bailey","fedlands")  # names of layers you want to check
+geomlayernames <- c("PA","lower48","rich.fish","rich.amphib","bailey")  # names of layers you want to check - Need to re-do Fedlands on its own
 options(warn=-1)  # temporarily turn off warnings
 for(i in 1:length(geomlayernames)) {
   if(length(which(st_is_valid(get(geomlayernames[i]))==FALSE))==0) {
@@ -134,17 +134,32 @@ options(warn=0)  # turn warnings back on
 
 
 ### CROP INPUT LAYERS TO LOWER 48 ###
-
-croplayernames <- c("PA","climate","fedlands","natlandcover","bailey")  # names of layers you want to crop
+rasterOptions(tmpdir = "D:/RastTemp", progress = "text", maxmemory = 2e+08, todisk=TRUE)
+croplayernames <- c("PA","rich.fish","rich.amphib","bailey" )  # names of layers you want to crop
 lower48.sp <- as(lower48, "Spatial") # convert lower48 sf layer to sp (so extent can be extracted by crop function)
 for(k in 1:length(croplayernames)) {
   sp.input <- as(get(croplayernames[k]), "Spatial")
-  temp4 <- crop(sp.input, lower48.sp)
-  temp5 <- as(temp4, "sf")
-  assign(croplayernames[k], temp5)
+  temp4 <- raster::crop(sp.input, lower48.sp, progress = 'text')
+  assign(croplayernames[k], temp4)
+}
+
+croprastnames <- c("natlandcover", "rich.mammal", "rich.bird", "rich.tree", "rich.reptile", "climate")
+for(k in 1:length(croprastnames)) {
+  sp.input <- get(croprastnames[k])
+  temp4 <- raster::crop(sp.input, lower48.sp, progress = 'text')
+  assign(croprastnames[k], temp4)
 }
 
 
+for(l in 1:length(croplayernames)) {
+  temp <- as(get(croplayernames[l]),"sf")
+  st_write(temp, paste0("D:/Data/MonumentData/Generated Data/",croplayernames[l],".shp"))
+}
+
+for(l in 1:length(croprastnames)) {
+  temp <- get(croprastnames[l])
+  writeRaster(temp, paste0("D:/Data/MonumentData/Generated Data/",croprastnames[l],".tif"), format="GTiff", prj=TRUE)
+}
 ### SAVE FINAL OBJECTS TO WORKSPACE
 
 keepers <- c("PA","lower48","rich.fish","rich.amphib","bailey","fedlands","sectordom","lcv","natlandcover","rich.mammal", "rich.bird", "rich.tree", "rich.reptile","climate")   # list of objects we want to save (this will be input to zonal stats script)
