@@ -67,7 +67,7 @@ natlandcover <- raster("D:/Data/MonumentData/Generated Data/natlandcvr.tif")
 
 # Bailey's ecoregion provinces (for standardizing ecological values by major ecoregional differences)
 # dissolve by province
-bailey <- st_read(paste(infolder,"eco_us.shp",sep=""))
+bailey <- st_read(paste(infolder,"na_regns.shp",sep=""))
 bailey.sp <- as(bailey, "Spatial")
 bailey.dissolve <- aggregate(bailey.sp, list(bailey.sp$DIVISION), FUN = function(x) x[1], dissolve = TRUE)
 bailey <- as(bailey.dissolve, "sf")
