@@ -111,7 +111,7 @@ for(k in 1:length(cont.rasters)) {   # reproject categorical rasters
 
 ### CHECK FOR INVALID GEOMETRIES IN SF LAYERS ###
 
-geomlayernames <- c("PA","lower48","rich.fish","rich.amphib","bailey")  # names of layers you want to check - Need to re-do Fedlands on its own
+geomlayernames <- c("PA","lower48","rich.fish","rich.amphib","bailey","fedlands")  # names of layers you want to check - Need to re-do Fedlands on its own
 options(warn=-1)  # temporarily turn off warnings
 for(i in 1:length(geomlayernames)) {
   if(length(which(st_is_valid(get(geomlayernames[i]))==FALSE))==0) {
@@ -135,7 +135,7 @@ options(warn=0)  # turn warnings back on
 
 ### CROP INPUT LAYERS TO LOWER 48 ###
 rasterOptions(tmpdir = "D:/RastTemp", progress = "text", maxmemory = 2e+08, todisk=TRUE)
-croplayernames <- c("PA","rich.fish","rich.amphib","bailey" )  # names of layers you want to crop
+croplayernames <- c("PA","rich.fish","rich.amphib","bailey" ,"fedlands")  # names of layers you want to crop
 lower48.sp <- as(lower48, "Spatial") # convert lower48 sf layer to sp (so extent can be extracted by crop function)
 for(k in 1:length(croplayernames)) {
   sp.input <- as(get(croplayernames[k]), "Spatial")
