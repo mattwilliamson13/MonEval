@@ -12,10 +12,13 @@ library(viridis)
 library(tidyverse)
 library(rvest)
 library(maptools)
+library(ggplot2)
 
-load() # load workspace with prepped input layers
+infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set folder holding input data
 
-rasterOptions(progress="text", overwrite=TRUE)
+load(paste(infolder, "/WSnofedland.RData", sep="")) # load workspace with prepped input layers
+
+rasterOptions(progress="text", overwrite=TRUE)  # turn on progress bar for raster operations
 
 
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
