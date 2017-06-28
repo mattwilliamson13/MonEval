@@ -1,4 +1,4 @@
-# National Monuments Analysis - Generate zonal statistics
+# National Monuments Analysis - Generate zonal statistics for protected areas
 
 
 library(raster)
@@ -21,6 +21,14 @@ rasterOptions(progress="text", overwrite=TRUE)  # turn on progress bar for raste
 
 
 ### READ IN PREPPED SPATIAL DATA
+
+
+# Important Note: for remainder of script to work, I first need to fix duplicate PA names
+# these five wilderness names have two different areas:
+  # Black Canyon Wilderness, Coyote Mountains Wilderness, Granite Mountain Wilderness, Hells Canyon Wilderness, Red Mountain Wilderness
+# Need to rename them (e.g., Black Canyon 1 vs. Black Canyon 2 Wilderness) so that each PA has a unique name
+
+
 
 PA <- st_read(paste(infolder, "/PA.shp", sep=""))
 bailey <- st_read(paste(infolder, "/baileycor.shp", sep=""))
@@ -101,29 +109,46 @@ system.rw.aw.richness <- system.rw.richness/PA$area_ac  # divide by PA area
 
 
 
-# LCV Score
-# Steps:
-# get establishment year for each PA
-# get shapefile of congressional districts for congress during the establishment year
-# find congressional districts that overlap each PA (or within a certain distance?) (st_intersection? st_extract?)
-# calculate mean lcv score (area-weighted?) for congressional districts overlapping the PA during that congressional term
+### CLASSIFY PAs BY BAILEY DIVISION
 
-# Sector dominance
+# determine which Bailey's ecoregions each PA intersects
+intersections <- st_intersects(PA, bailey) # find which bailey features intersect each PA
+count.int <- sapply(intersections, length) # get count of how many divisions intersect each polygon
+hist(count.int)  # look at histogram
 
+# get majority division for each PA
+pi <- st_intersection(bailey, PA)  # get intersections between polygons in PA and bailey layers
+piArea <- pi %>%   # get areas of intersections
+  mutate(area = st_area(.) %>% as.numeric())
+totalArea <- piArea %>%  # calculate total areas of each bailey division for each PA
+  as_tibble() %>% 
+  group_by(UnitName, DIVISION) %>% 
+  summarize(area = sum(area))
+baileyMajority <- totalArea %>%  # for each PA, keep the row with the division that has the largest area
+  as_tibble() %>%
+  group_by(UnitName) %>%
+  top_n(n=1)
+bailey.majority <- baileyMajority$DIVISION  # vector of majority division to include in PA dataframe
 
-
+## alternatively, create dataframe with column for each bailey division to indicate if each PA (row) intersects that division
+#bailey.df <- data.frame(matrix(0, nrow=nrow(PA), ncol=nrow(bailey)))
+#names(bailey.df) <- paste("bailey", c(1:nrow(bailey)), sep=".")  # add column names
+## fill in dataframe with intersection data
+#for(i in 1:length(intersections)){
+#  subdata <- intersections[[i]]
+#  bailey.df[i,subdata] <- 1
+#}
 
 
 ### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME
 
-# need to add code that gets state(s) and bailey's division(s) for each PA
-
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
-outputvars <- c(outputnames, "mean.rich.amphib", "mean.rich.fish", "system.simple.richness", "system.rw.richness","system.rw.aw.richness")  # vector of names of all output variables
+outputvars <- c(outputnames, "mean.rich.amphib", "mean.rich.fish", "system.simple.richness", "system.rw.richness","system.rw.aw.richness", "bailey.majority")  # vector of names of all output variables
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
 names(PA.df)[(ncol(PA.df)-length(outputvars)+1):ncol(PA.df)] <- outputvars # give names to new output variables in dataframe
 
+PA.df <- data.frame(PA.df,bailey.majority)
 
 
