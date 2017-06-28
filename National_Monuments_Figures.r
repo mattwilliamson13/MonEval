@@ -12,8 +12,23 @@ library(maptools)
 library(ggplot2)
 
 infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set folder holding input data
-load(paste(infolder, "/WSnofedland.RData", sep="")) # load workspace with prepped input layers
 
+PA <- st_read(paste(infolder, "/PA.shp", sep=""))
+bailey <- st_read(paste(infolder, "/baileycor.shp", sep=""))
+rich.bird <- raster(paste(infolder, "/rich.bird.tif", sep=""))
+rich.mammal <- raster(paste(infolder, "/rich.mammal.tif", sep=""))
+rich.tree <- raster(paste(infolder, "/rich.tree.tif", sep=""))
+rich.reptile <- raster(paste(infolder, "/rich.reptile.tif", sep=""))
+rich.fish <- st_read(paste(infolder, "/rich.fish.shp", sep=""))
+rich.amphib <- st_read(paste(infolder, "/rich.amphib.shp", sep=""))
+natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))
+climate <- raster(paste(infolder, "/climate.tif", sep=""))
+fedlands <- st_read(paste(infolder, "/fedlandscrop.shp", sep=""))
+
+# remove two NMs that were designated by inter-agency agreement
+PA <- filter(PA, DesigAuth %in% c("Congress","President"))
+
+# might also be worth creating a new designating authority category for things that started as presidential NMs but are now congressional designations
 
 
 ####################################################################################
@@ -54,18 +69,15 @@ ggplot(data=PA, aes(x=EstabYear, y=area_ac)) +
 #################################################################################################
 ### FIGURE 1: MAP OF PROTECTED AREAS COLOR CODED BY DESIGNATION TYPE
 
-PA <- as(PA, "sf")  # make sure PA layer is in sf format
-
 gg1 <- ggplot() +
   geom_sf(lower48, aes())
 
 ggplot() +
   geom_sf(data=bailey) +
-  geom_sf(data=PA, aes(fill=DesigAuth)) +
+  geom_sf(data=PA, aes(fill=DesigAuth, color=NULL)) +
   ggtitle("Federal protected areas of the contigous United States") +
   theme_bw()
 
-# would like to add lower48 outline, but can't use geom_sf with sfc class (i.e., multipolygon feature)
 
 
 

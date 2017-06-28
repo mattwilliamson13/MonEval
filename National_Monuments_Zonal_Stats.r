@@ -97,7 +97,7 @@ for(i in 1:length(ecol.systems)) {
   tempB <- lc.table$rarity[which(lc.table$lc.vec %in% tempA)]  # get rarity scores for these cover types
   system.rw.richness[i] <- sum(tempB)  # sum the rarity scores
 }
-system.rw.aw.richness <- system.rw.richess/PA$area_ac  # divide by PA area
+system.rw.aw.richness <- system.rw.richness/PA$area_ac  # divide by PA area
 
 
 
@@ -119,7 +119,7 @@ system.rw.aw.richness <- system.rw.richess/PA$area_ac  # divide by PA area
 # need to add code that gets state(s) and bailey's division(s) for each PA
 
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
-outputvars <- c(outputnames, "mean.rich.amphib", "mean.rich.fish", "system.rw.aw.richness")  # vector of names of all output variables
+outputvars <- c(outputnames, "mean.rich.amphib", "mean.rich.fish", "system.simple.richness", "system.rw.richness","system.rw.aw.richness")  # vector of names of all output variables
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
