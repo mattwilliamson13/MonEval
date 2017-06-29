@@ -22,26 +22,25 @@ rasterOptions(progress="text", overwrite=TRUE)  # turn on progress bar for raste
 
 ### READ IN PREPPED SPATIAL DATA
 
-
-# Important Note: for remainder of script to work, I first need to fix duplicate PA names
-# these five wilderness names have two different areas:
-  # Black Canyon Wilderness, Coyote Mountains Wilderness, Granite Mountain Wilderness, Hells Canyon Wilderness, Red Mountain Wilderness
-# Need to rename them (e.g., Black Canyon 1 vs. Black Canyon 2 Wilderness) so that each PA has a unique name
-
-
-
-PA <- st_read(paste(infolder, "/PA.shp", sep=""))
-bailey <- st_read(paste(infolder, "/baileycor.shp", sep=""))
+bailey <- st_read(paste(infolder, "/baileycor.shp", sep=""), stringsAsFactors=FALSE)
 rich.bird <- raster(paste(infolder, "/rich.bird.tif", sep=""))
 rich.mammal <- raster(paste(infolder, "/rich.mammal.tif", sep=""))
 rich.tree <- raster(paste(infolder, "/rich.tree.tif", sep=""))
 rich.reptile <- raster(paste(infolder, "/rich.reptile.tif", sep=""))
-rich.fish <- st_read(paste(infolder, "/rich.fish.shp", sep=""))
-rich.amphib <- st_read(paste(infolder, "/rich.amphib.shp", sep=""))
+rich.fish <- st_read(paste(infolder, "/rich.fish.shp", sep=""), stringsAsFactors=FALSE)
+rich.amphib <- st_read(paste(infolder, "/rich.amphib.shp", sep=""), stringsAsFactors=FALSE)
 natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))
-climate <- raster(paste(infolder, "/climate.tif", sep=""))
+climate <- raster(paste(infolder, "/climate.tif", sep=""), stringsAsFactors=FALSE)
 # lcv <- st_read()
 # lcv <- st_read()
+PA <- st_read(paste(infolder, "/PA.shp", sep=""), stringsAsFactors=FALSE)
+# Fix duplicate PA names for five wilderness areas by adding a 1 or 2 to the PA name
+PA <- PA[order(PA$UnitName),]
+dupes <- which(PA$UnitName %in% c("Black Canyon Wilderness", "Coyote Mountains Wilderness", "Granite Mountain Wilderness", "Hells Canyon Wilderness", "Red Mountain Wilderness"))
+addon <- rep(c(1,2),length(dupes)/2)
+for(i in 1:length(dupes)) {
+  PA$UnitName[dupes[i]] <- paste(PA$UnitName[dupes[i]],addon[i], sep=" ")
+}
 
 
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
@@ -91,10 +90,9 @@ PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (
 ecol.systems <- raster::extract(natlandcover, PA.sp, na.rm=TRUE)  # list of ecological systems (by ID) within each PA
 
 # simple richness metric that doesn't account for variation in PA area or rarity of systems represented
-system.simple.richness <- lapply(ecol.systems, function(x) length(unique(x)))  # number of different systems within each PA
+system.richness <- lapply(ecol.systems, function(x) length(unique(x)))  # number of different systems within each PA
 
 # rarity-weighted metric: higher values for PAs that include rarer ecological systems
-# also controls for PA area (since larger PAs should have greater system richness by virtue of sampling area alone)
 lc.vec <- as.vector(natlandcover)   # convert natlandcover to vector of values
 lc.table <- as.data.frame(table(lc.vec))  # get counts of each cover type within lower 48
 lc.table$rarity <- 1/lc.table$Freq  # calculate rarity score for each cover type as 1 / number of cells of that cover type
@@ -105,6 +103,9 @@ for(i in 1:length(ecol.systems)) {
   tempB <- lc.table$rarity[which(lc.table$lc.vec %in% tempA)]  # get rarity scores for these cover types
   system.rw.richness[i] <- sum(tempB)  # sum the rarity scores
 }
+
+# richness metrics that control for PA area (since larger PAs should have greater system richness by virtue of sampling area alone)
+system.aw.richness <- system.richness/PA$area_ac
 system.rw.aw.richness <- system.rw.richness/PA$area_ac  # divide by PA area
 
 
@@ -143,12 +144,11 @@ bailey.majority <- baileyMajority$DIVISION  # vector of majority division to inc
 ### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME
 
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
-outputvars <- c(outputnames, "mean.rich.amphib", "mean.rich.fish", "system.simple.richness", "system.rw.richness","system.rw.aw.richness", "bailey.majority")  # vector of names of all output variables
+outputvars <- c(outputnames, "mean.rich.amphib", "mean.rich.fish", "system.richness", "system.aw.richness", "system.rw.richness", "system.rw.aw.richness", "bailey.majority")  # vector of names of all output variables
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
 names(PA.df)[(ncol(PA.df)-length(outputvars)+1):ncol(PA.df)] <- outputvars # give names to new output variables in dataframe
 
-PA.df <- data.frame(PA.df,bailey.majority)
 
 
