@@ -8,7 +8,6 @@ library(rgeos)
 library(rgdal)
 library(dplyr)
 library(ggplot2)
-library(viridis)
 library(tidyverse)
 library(rvest)
 library(maptools)
@@ -149,6 +148,14 @@ for(i in 1:length(outputvars)){  # add each output variables as a new column in 
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
 names(PA.df)[(ncol(PA.df)-length(outputvars)+1):ncol(PA.df)] <- outputvars # give names to new output variables in dataframe
-
+# add a new variable for ORIGINAL designating authority (i.e., find current parks and preserves that started out as presidential NMs but were later redesignated by Congress)
+PA.df$OrigDesigAuth <- rep(NA, nrow(PA.df))
+for(i in 1:nrow(PA.df)) {
+  if(is.na(PA.df$OrigAntiq[i])==TRUE) {
+    PA.df$OrigDesigAuth[i] <- PA.df$DesigAuth[i] 
+  } else {
+    PA.df$OrigDesigAuth[i] <- "President"
+  }
+}
 
 
