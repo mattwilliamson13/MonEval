@@ -5,17 +5,17 @@ library(rgeos)
 library(rgdal)
 library(dplyr)
 library(ggplot2)
-library(viridis)
 library(tidyverse)
 library(rvest)
 library(maptools)
 library(ggplot2)
 library(RColorBrewer)
+library(ggsn)
 
 infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set folder holding input data
 
 # load in dataframe with output variables for PAs
-load(paste(infolder,"/ADD NAME HERE.RData"))
+load(paste(infolder,"/PA_zonal_stats.RData"))
 
 # load spatial data
 PA <- st_read(paste(infolder, "/PA.shp", sep=""))
@@ -75,15 +75,23 @@ ggplot(data=PA, aes(x=EstabYear, y=area_ac)) +
 #################################################################################################
 ### FIGURE 1: MAP OF PROTECTED AREAS COLOR CODED BY DESIGNATION TYPE
 
+# NOTE: can't map a multipolygon layer using geom_sf, so we'll need to go 
+  # back and generate a non-unioned fedlands layer if we want to include in the plot
+# the fix for this is fedlands.cast <- st_cast(fedlands, "POLYGON")
+
+# can't map multipolygon layers using geom_sf, so convert fedlands back to polygons layer
+fedlands.cast <- st_cast(fedlands, "POLYGON") 
+
+# NOTE: following plot takes a very long time to generate figure in R -
+# either run on cluster or comment out fedlands line when tweaking figure
 ggplot() +
-  geom_sf(data=states, fill="grey90", color=NA) +  # light grey background for lower 48 states
-  geom_sf(data=fedlands, fill="grey70", color=NA) +  # federal lands in darker grey
-  geom_sf(data=states, fill=NA, color="grey50") +  # state outlines in darkest grey
+  geom_sf(data=states, fill="grey85", color=NA) +  # light grey background for lower 48 states
+  #geom_sf(data=fedlands.cast, fill="grey70", color=NA) +  # federal lands in darker grey
+  geom_sf(data=states, fill=NA, color="white") +  # state outlines in darkest grey
   geom_sf(data=PA, aes(fill=DesigAuth), color=NA) +  # protected areas on top
   ggtitle("Federal protected areas of the contiguous United States") +
   theme_bw() +
   scale_fill_discrete(name="Designating\nauthority")
-
 
 
 
@@ -124,4 +132,12 @@ PA.df$mean.rich.mammal <- rnorm(nrow(PA.df))  # create sample data until zonal s
 ggplot() +
   geom_boxplot(data=PA.df, aes(x=bailey.majority, y=mean.rich.mammal, fill=DesigAuth)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+
+
+### test out map option
+map1 <- ggplot() +
+  geom_sf(data=states) +
+  scalebar(data=states, dist=100000, dd2km=FALSE, model="GRS80")
+  scalebar(data=bailey, dist=1000, height=0.05, st.dist=0.02, st.bottom=TRUE, st.size=8, dd2km=FALSE, model="GRS80")
+north2(map1, x=0.1, y=0.2, scale=0.1, symbol=16)
 
