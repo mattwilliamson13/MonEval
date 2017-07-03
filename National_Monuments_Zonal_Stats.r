@@ -29,7 +29,7 @@ rich.reptile <- raster(paste(infolder, "/rich.reptile.tif", sep=""))
 rich.fish <- st_read(paste(infolder, "/rich.fish.shp", sep=""), stringsAsFactors=FALSE)
 rich.amphib <- st_read(paste(infolder, "/rich.amphib.shp", sep=""), stringsAsFactors=FALSE)
 natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))
-climate <- raster(paste(infolder, "/climate.tif", sep=""), stringsAsFactors=FALSE)
+climate <- raster(paste(infolder, "/climate.tif", sep=""))
 # lcv <- st_read()
 # lcv <- st_read()
 PA <- st_read(paste(infolder, "/PA.shp", sep=""), stringsAsFactors=FALSE)
@@ -143,10 +143,41 @@ baileyMajority <- totalArea %>%  # for each PA, keep the row with the division t
 bailey.majority <- baileyMajority$DIVISION  # vector of majority division to include in PA dataframe
 
 
+
+### CLASSIFY PAs BY STATE
+
+# dissolve states layer (one multipolygon feature per states)
+states <- st_read(paste(infolder, "/states2.shp", sep=""), stringsAsFactors=FALSE)
+states.sp <- as(states, "Spatial")
+states.dissolve <- aggregate(states.sp, list(states.sp$STATE), FUN = function(x) x[1], dissolve = TRUE)
+states <- as(states.dissolve, "sf")
+states <- select(states, STATE)
+
+# determine which states each PA intersects
+intersections <- st_intersects(PA, states) # find which states intersect each PA
+count.int <- sapply(intersections, length) # get count of how many divisions intersect each polygon
+hist(count.int)  # look at histogram
+
+# get majority state for each PA
+pi <- st_intersection(states, PA)  # get intersections between polygons in PA and state layers
+piArea <- pi %>%   # get areas of intersections
+  mutate(area = st_area(.) %>% as.numeric())
+totalArea <- piArea %>%  # calculate total areas of each states within each PA
+  as_tibble() %>%
+  group_by(UnitName, STATE) %>%
+  summarize(area = sum(area))
+stateMajority <- totalArea %>%  # for each PA, keep the row with the state that has the largest area
+  as_tibble() %>%
+  group_by(UnitName) %>%
+  top_n(n=1)
+state.majority <- stateMajority$STATE  # vector of majority states to include in PA dataframe
+
+
+
 ### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME
 
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
-outputvars <- c(outputnames, "mean.rich.amphib", "max.rich.amphib","mean.rich.fish", "max.rich.fish", "system.richness", "system.aw.richness", "system.rw.richness", "system.rw.aw.richness", "bailey.majority")  # vector of names of all output variables
+outputvars <- c("mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "mean.rich.amphib", "max.rich.amphib","mean.rich.fish", "max.rich.fish", "system.richness", "system.aw.richness", "system.rw.richness", "system.rw.aw.richness", "bailey.majority", "state.majority")  # vector of names of all output variables
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
@@ -161,3 +192,6 @@ for(i in 1:nrow(PA.df)) {
     PA.df$OrigDesigAuth[i] <- "President"
   }
 }
+
+# output PA.df to workspace file
+save(PA.df, file=paste(infolder,"/PA_zonal_stats.RData", sep=""))
