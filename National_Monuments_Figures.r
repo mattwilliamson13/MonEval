@@ -10,10 +10,31 @@ library(tidyverse)
 library(rvest)
 library(maptools)
 library(ggplot2)
+library(RColorBrewer)
 
 infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set folder holding input data
-load(paste(infolder, "/WSnofedland.RData", sep="")) # load workspace with prepped input layers
 
+# load in dataframe with output variables for PAs
+load(paste(infolder,"/ADD NAME HERE.RData"))
+
+# load spatial data
+PA <- st_read(paste(infolder, "/PA.shp", sep=""))
+bailey <- st_read(paste(infolder, "/baileycor.shp", sep=""))
+rich.bird <- raster(paste(infolder, "/rich.bird.tif", sep=""))
+rich.mammal <- raster(paste(infolder, "/rich.mammal.tif", sep=""))
+rich.tree <- raster(paste(infolder, "/rich.tree.tif", sep=""))
+rich.reptile <- raster(paste(infolder, "/rich.reptile.tif", sep=""))
+rich.fish <- st_read(paste(infolder, "/rich.fish.shp", sep=""))
+rich.amphib <- st_read(paste(infolder, "/rich.amphib.shp", sep=""))
+natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))
+climate <- raster(paste(infolder, "/climate.tif", sep=""))
+fedlands <- st_read(paste(infolder, "/fedlandscrop.shp", sep=""))
+states <- st_read(paste(infolder, "/states2.shp", sep=""))
+
+# remove two NMs that were designated by inter-agency agreement
+PA <- filter(PA, DesigAuth %in% c("Congress","President"))
+PA.df <- filter(PA.df, DesigAuth %in% c("Congress","President"))
+# might also be worth creating a new designating authority category for things that started as presidential NMs but are now congressional designations
 
 
 ####################################################################################
@@ -54,20 +75,53 @@ ggplot(data=PA, aes(x=EstabYear, y=area_ac)) +
 #################################################################################################
 ### FIGURE 1: MAP OF PROTECTED AREAS COLOR CODED BY DESIGNATION TYPE
 
-PA <- as(PA, "sf")  # make sure PA layer is in sf format
-
-gg1 <- ggplot() +
-  geom_sf(lower48, aes())
-
 ggplot() +
-  geom_sf(data=bailey) +
-  geom_sf(data=PA, aes(fill=DesigAuth)) +
-  ggtitle("Federal protected areas of the contigous United States") +
-  theme_bw()
+  geom_sf(data=states, fill="grey90", color=NA) +  # light grey background for lower 48 states
+  geom_sf(data=fedlands, fill="grey70", color=NA) +  # federal lands in darker grey
+  geom_sf(data=states, fill=NA, color="grey50") +  # state outlines in darkest grey
+  geom_sf(data=PA, aes(fill=DesigAuth), color=NA) +  # protected areas on top
+  ggtitle("Federal protected areas of the contiguous United States") +
+  theme_bw() +
+  scale_fill_discrete(name="Designating\nauthority")
 
-# would like to add lower48 outline, but can't use geom_sf with sfc class (i.e., multipolygon feature)
 
 
 
 ##########################################################################################
-### FIGURE 2: BOXPLOT OF 
+### BOXPLOT OF Congressional versus presidential PAs by Bailey's division
+
+ggplot() +
+  geom_bar(data=PA.df, aes(x = bailey.majority, fill=DesigAuth), position="dodge") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+
+# now, just for national monuments
+PA.nm <- filter(PA.df, DesigType=="National Monument")
+ggplot() +
+  geom_bar(data=PA.nm, aes(x = bailey.majority, fill=DesigAuth)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+
+
+##################################################################
+### Map of Bailey's divisions with PAs overlaid
+
+tol21rainbow= c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#77CCCC", "#117744", "#44AA77", "#88CCAA", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788")
+ggplot() +
+  geom_sf(data=bailey, aes(fill=DIVISION), color=NA) +
+  scale_fill_manual("Bailey Division", values=tol21rainbow) + 
+  geom_sf(data=PA, fill=NA, color="black")
+
+# same thing, but only NMs overlaid
+PA.nm <- filter(PA, DesigType=="National Monument")
+ggplot() +
+  geom_sf(data=bailey, aes(fill=DIVISION), color=NA) +
+  scale_fill_manual("Bailey Division", values=tol21rainbow) + 
+  geom_sf(data=PA.nm, fill=NA, color="black")
+  
+
+#############################################################
+# Compare mean richness of mammals between PNMs and CPAs
+PA.df$mean.rich.mammal <- rnorm(nrow(PA.df))  # create sample data until zonal stats are run
+ggplot() +
+  geom_boxplot(data=PA.df, aes(x=bailey.majority, y=mean.rich.mammal, fill=DesigAuth)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+
