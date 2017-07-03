@@ -61,8 +61,12 @@ fun = "max"  # choose function for zonal stats (e.g., mean, min, max, sum)
 inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile")  # rasters for which we want to calculate zonal stats
 outputnames <- paste(fun,inputnames,sep=".") # vectors that will hold output values
 for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
+  start <- Sys.time()
   zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, method=simple, fun=get(fun), na.rm=TRUE, df=FALSE)
   assign(outputnames[i],zonalvals)
+  end <- Sys.time()
+  process <- end - start
+  print(paste0(inputnames[i], "Process=", process))
 }
 
 
