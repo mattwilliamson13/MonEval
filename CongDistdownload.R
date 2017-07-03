@@ -12,4 +12,4 @@ for(i in 1:length(cnp)){
 }
 
 dist.zip <- list.files(getwd(), pattern=".zip")
-lapply(dist.zip,unzip(x) junkpaths=TRUE)
+lapply(dist.zip,unzip, junkpaths=TRUE)
