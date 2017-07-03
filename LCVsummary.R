@@ -62,3 +62,7 @@ sen.sum <- LCVsen %>%
         lower10LCV = quantile(LCVScore, probs=0.1, na.rm=TRUE),
         upper75LCV = quantile(LCVScore, probs=0.75, na.rm=TRUE),
         lower25LCV = quantile(LCVScore, probs=0.25, na.rm=TRUE))
+
+a <- ggplot(LCVhse, aes(year,median(LCVScore, na.rm=TRUE))) +
+      geom_path() +
+      facet_wrap(~state)
