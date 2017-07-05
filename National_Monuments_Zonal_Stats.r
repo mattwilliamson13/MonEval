@@ -16,8 +16,7 @@ library(ggplot2)
 #infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # location on Tyler's Google Drive
 infolder <- "D:/Data/MonumentData/Generated Data"  # location on Schwartz server
 
-rasterOptions(progress="text", overwrite=TRUE)  # turn on progress bar for raster operations
-
+rasterOptions(tmpdir = "D:/RastTemp/", progress="text", overwrite=TRUE)  # turn on progress bar for raster operations
 
 ### READ IN PREPPED SPATIAL DATA
 
@@ -61,8 +60,12 @@ fun = "max"  # choose function for zonal stats (e.g., mean, min, max, sum)
 inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile")  # rasters for which we want to calculate zonal stats
 outputnames <- paste(fun,inputnames,sep=".") # vectors that will hold output values
 for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
+  start <- Sys.time()
   zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, method=simple, fun=get(fun), na.rm=TRUE, df=FALSE)
   assign(outputnames[i],zonalvals)
+  end <- Sys.time()
+  process <- end - start
+  print(paste0(inputnames[i], "Process=", process))
 }
 
 
@@ -80,7 +83,7 @@ temp.rich.fish <- st_intersection(rich.fish, PA) %>%  # intersect PAs and richne
 mean.rich.fish <- temp.rich.fish$weightedMean
 max.rich.fish <- temp.rich.fish$max
 
-temp.rich.amphib <- st_intersection(rich.amphib, sample20) %>%  # intersect PAs and richness polygons
+temp.rich.amphib <- st_intersection(rich.amphib, PA) %>%  # intersect PAs and richness polygons
   mutate(intersectPolyArea =  as.numeric(st_area(geometry))) %>%  # calculate areas of intersection polygons
   group_by(UnitName) %>%  # group intersection polygons by PA
   mutate(sumIntersectArea = sum(intersectPolyArea)) %>% # get the sum of intersect polygon areas associated with each PA (could be different than PA area because of missing data (e.g., watersheds with no fish richness))
@@ -101,17 +104,17 @@ PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (
 ecol.systems <- raster::extract(natlandcover, PA.sp, na.rm=TRUE)  # list of ecological systems (by ID) within each PA
 
 # simple richness metric that doesn't account for variation in PA area or rarity of systems represented
-system.richness <- lapply(ecol.systems, function(x) length(unique(x)))  # number of different systems within each PA
+system.richness <- as.numeric(lapply(ecol.systems, function(x) length(unique(x))))  # number of different systems within each PA
 
 # rarity-weighted metric: higher values for PAs that include rarer ecological systems
-lc.vec <- as.vector(natlandcover)   # convert natlandcover to vector of values
-lc.table <- as.data.frame(table(lc.vec))  # get counts of each cover type within lower 48
-lc.table$rarity <- 1/lc.table$Freq  # calculate rarity score for each cover type as 1 / number of cells of that cover type
+lc.table <- freq(natlandcover, progress = "text")
+lc.table.df <- as.data.frame(lc.table)  # get counts of each cover type within lower 48
+lc.table.df$rarity <- 1/lc.table.df$count  # calculate rarity score for each cover type as 1 / number of cells of that cover type
 
 system.rw.richness <- rep(NA, length(ecol.systems)) # preallocate vector for rarity weighted richness
 for(i in 1:length(ecol.systems)) {
   tempA <- sort(unique(ecol.systems[[i]]))  # get list of cover types in PA
-  tempB <- lc.table$rarity[which(lc.table$lc.vec %in% tempA)]  # get rarity scores for these cover types
+  tempB <- lc.table.df$rarity[which(lc.table.df$value %in% tempA)]  # get rarity scores for these cover types
   system.rw.richness[i] <- sum(tempB)  # sum the rarity scores
 }
 
