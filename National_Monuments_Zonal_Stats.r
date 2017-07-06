@@ -80,8 +80,15 @@ temp.rich.fish <- st_intersection(rich.fish, PA) %>%  # intersect PAs and richne
   mutate(weightedValue = overlapProportion * Join_Count) %>%  # weighted value = weight x richness value
   group_by(UnitName) %>%
   summarise(weightedMean = sum(weightedValue), max=max(Join_Count))
-mean.rich.fish <- temp.rich.fish$weightedMean
-max.rich.fish <- temp.rich.fish$max
+# deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation 
+rich.fish.df <- data.frame(as.character(UnitName=temp.rich.fish$UnitName), weightedMean=temp.rich.fish$weightedMean, max=temp.rich.fish$max, stringsAsFactors=FALSE) # create dataframe out of temp.rich.fish
+fish.PAnames <- rich.fish.df$UnitName  # get list of PA names in the richness output 
+all.PAnames <- PA$UnitName  # get list of all PA names, including those missing from richness output
+'%notin%' <- function(x,y) !(x %in% y)
+missing.fish.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.fish.df$UnitName)]  # find PAs missing from richness output
+rich.fish.df.corrected <- data.frame(UnitName=c(rich.fish.df$UnitName, missing.fish.PAnames), mean.rich.fish=c(rich.fish.df$weightedMean, rep(NA, length(missing.fish.PAnames))), max.rich.fish=c(rich.fish.df$max, rep(NA, length(missing.fish.PAnames))))  # add missing PAs to new dataframe with NA for mean and max richness value
+
+
 
 temp.rich.amphib <- st_intersection(rich.amphib, PA) %>%  # intersect PAs and richness polygons
   mutate(intersectPolyArea =  as.numeric(st_area(geometry))) %>%  # calculate areas of intersection polygons
@@ -93,6 +100,15 @@ temp.rich.amphib <- st_intersection(rich.amphib, PA) %>%  # intersect PAs and ri
   summarise(weightedMean = sum(weightedValue), max=max(Join_Count))
 mean.rich.amphib <- temp.rich.amphib$weightedMean
 max.rich.amphib <- temp.rich.amphib$max
+# deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation 
+rich.amphib.df <- data.frame(as.character(UnitName=temp.rich.amphib$UnitName), weightedMean=temp.rich.amphib$weightedMean, max=temp.rich.amphib$max, stringsAsFactors=FALSE) # create dataframe out of temp.rich.amphib
+amphib.PAnames <- rich.amphib.df$UnitName  # get list of PA names in the richness output 
+all.PAnames <- PA$UnitName  # get list of all PA names, including those missing from richness output
+'%notin%' <- function(x,y) !(x %in% y)
+missing.amphib.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.amphib.df$UnitName)]  # find PAs missing from richness output
+rich.amphib.df.corrected <- data.frame(UnitName=c(rich.amphib.df$UnitName, missing.amphib.PAnames), mean.rich.amphib=c(rich.amphib.df$weightedMean, rep(NA, length(missing.amphib.PAnames))), max.rich.amphib=c(rich.amphib.df$max, rep(NA, length(missing.amphib.PAnames))))  # add missing PAs to new dataframe with NA for mean and max richness value
+
+
 
 # need to add code here for LCV and sector dominance
 
@@ -180,11 +196,13 @@ state.majority <- stateMajority$STATE  # vector of majority states to include in
 ### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME
 
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
-outputvars <- c("mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "mean.rich.amphib", "max.rich.amphib","mean.rich.fish", "max.rich.fish", "system.richness", "system.aw.richness", "system.rw.richness", "system.rw.aw.richness", "bailey.majority", "state.majority")  # vector of names of all output variables
+outputvars <- c("mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "system.richness", "system.aw.richness", "system.rw.richness", "system.rw.aw.richness", "bailey.majority", "state.majority")  # vector of names of all output variables
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
 names(PA.df)[(ncol(PA.df)-length(outputvars)+1):ncol(PA.df)] <- outputvars # give names to new output variables in dataframe
+rich.fish.amphib.df <- merge(rich.fish.df.corrected, rich.amphib.df.corrected, by="UnitName")
+PA.df <- merge(PA.df, rich.fish.amphib.df, by="UnitName")
 
 # add a new variable for ORIGINAL designating authority (i.e., find current parks and preserves that started out as presidential NMs but were later redesignated by Congress)
 PA.df$OrigDesigAuth <- rep(NA, nrow(PA.df))
