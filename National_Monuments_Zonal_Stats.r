@@ -89,7 +89,6 @@ missing.fish.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.fish.df$UnitN
 rich.fish.df.corrected <- data.frame(UnitName=c(rich.fish.df$UnitName, missing.fish.PAnames), mean.rich.fish=c(rich.fish.df$weightedMean, rep(NA, length(missing.fish.PAnames))), max.rich.fish=c(rich.fish.df$max, rep(NA, length(missing.fish.PAnames))))  # add missing PAs to new dataframe with NA for mean and max richness value
 
 
-
 temp.rich.amphib <- st_intersection(rich.amphib, PA) %>%  # intersect PAs and richness polygons
   mutate(intersectPolyArea =  as.numeric(st_area(geometry))) %>%  # calculate areas of intersection polygons
   group_by(UnitName) %>%  # group intersection polygons by PA
