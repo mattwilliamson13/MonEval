@@ -80,9 +80,9 @@ temp.rich.fish <- st_intersection(rich.fish, PA) %>%  # intersect PAs and richne
   mutate(weightedValue = overlapProportion * Join_Count) %>%  # weighted value = weight x richness value
   group_by(UnitName) %>%
   summarise(weightedMean = sum(weightedValue), max=max(Join_Count))
-# deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation 
-rich.fish.df <- data.frame(as.character(UnitName=temp.rich.fish$UnitName), weightedMean=temp.rich.fish$weightedMean, max=temp.rich.fish$max, stringsAsFactors=FALSE) # create dataframe out of temp.rich.fish
-fish.PAnames <- rich.fish.df$UnitName  # get list of PA names in the richness output 
+# deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation
+rich.fish.df <- data.frame(UnitName=temp.rich.fish$UnitName, weightedMean=temp.rich.fish$weightedMean, max=temp.rich.fish$max, stringsAsFactors=FALSE) # create dataframe out of temp.rich.fish
+fish.PAnames <- rich.fish.df$UnitName  # get list of PA names in the richness output
 all.PAnames <- PA$UnitName  # get list of all PA names, including those missing from richness output
 '%notin%' <- function(x,y) !(x %in% y)
 missing.fish.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.fish.df$UnitName)]  # find PAs missing from richness output
@@ -99,9 +99,9 @@ temp.rich.amphib <- st_intersection(rich.amphib, PA) %>%  # intersect PAs and ri
   summarise(weightedMean = sum(weightedValue), max=max(Join_Count))
 mean.rich.amphib <- temp.rich.amphib$weightedMean
 max.rich.amphib <- temp.rich.amphib$max
-# deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation 
-rich.amphib.df <- data.frame(as.character(UnitName=temp.rich.amphib$UnitName), weightedMean=temp.rich.amphib$weightedMean, max=temp.rich.amphib$max, stringsAsFactors=FALSE) # create dataframe out of temp.rich.amphib
-amphib.PAnames <- rich.amphib.df$UnitName  # get list of PA names in the richness output 
+# deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation
+rich.amphib.df <- data.frame(UnitName=temp.rich.amphib$UnitName, weightedMean=temp.rich.amphib$weightedMean, max=temp.rich.amphib$max, stringsAsFactors=FALSE) # create dataframe out of temp.rich.amphib
+amphib.PAnames <- rich.amphib.df$UnitName  # get list of PA names in the richness output
 all.PAnames <- PA$UnitName  # get list of all PA names, including those missing from richness output
 '%notin%' <- function(x,y) !(x %in% y)
 missing.amphib.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.amphib.df$UnitName)]  # find PAs missing from richness output
