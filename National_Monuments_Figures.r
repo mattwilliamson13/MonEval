@@ -15,7 +15,7 @@ library(ggsn)
 infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set folder holding input data
 
 # load in dataframe with output variables for PAs
-load(paste(infolder,"/PA_zonal_stats.RData"))
+load(paste(infolder,"/PA_zonal_stats.RData", sep=""))
 
 # load spatial data
 PA <- st_read(paste(infolder, "/PA.shp", sep=""))
@@ -128,10 +128,24 @@ ggplot() +
 
 #############################################################
 # Compare mean richness of mammals between PNMs and CPAs
-PA.df$mean.rich.mammal <- rnorm(nrow(PA.df))  # create sample data until zonal stats are run
+
+PA.mean.mammal <- filter(PA.df, mean.rich.mammal)
+
+# all divisions combined
 ggplot() +
-  geom_boxplot(data=PA.df, aes(x=bailey.majority, y=mean.rich.mammal, fill=DesigAuth)) +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.mammal)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+
+
+ggplot() +
+  geom_boxplot(data=PA.df, aes(x=bailey.majority, y=mean.rich.mammal, fill=OrigDesigAuth)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+
+ggplot() +
+  geom_boxplot(data=PA.df, aes(x=bailey.majority, y=mean.rich.bird, fill=DesigAuth)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+
+
 
 
 ### test out map option

@@ -44,28 +44,18 @@ for(i in 1:length(dupes)) {
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
 
 PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
-fun = "mean"  # choose function for zonal stats (e.g., mean, min, max, sum)
 inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile")  # rasters for which we want to calculate zonal stats
 outputnames <- paste(fun,inputnames,sep=".") # vectors that will hold output values
 for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
   start <- Sys.time()
-  zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, method=simple, fun=get(fun), na.rm=TRUE, weights=TRUE, normalizeWeights=TRUE, df=FALSE)
-  assign(outputnames[i],zonalvals)
+  zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, weights=TRUE)  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
+  meanvals <- sapply(zonalvals, function(x) sum(apply(x, 1, prod),na.rm=T) / sum(x[,2],na.rm=T))   # calculate weighted mean
+  assign(paste("mean",inputnames[i],sep="."),meanvals)  # write to output variable
+  maxvals <- sapply(zonalvals, function(x) max(x, na.rm=T))   # calculate max
+  assign(paste("max",inputnames[i],sep="."),maxvals)   # write to output variable
   end <- Sys.time()
-  process <- end - start
+  process <- end - start   # calculate processing time
   print(paste0(i, "Process=", process))
-}
-
-fun = "max"  # choose function for zonal stats (e.g., mean, min, max, sum)
-inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile")  # rasters for which we want to calculate zonal stats
-outputnames <- paste(fun,inputnames,sep=".") # vectors that will hold output values
-for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
-  start <- Sys.time()
-  zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, method=simple, fun=get(fun), na.rm=TRUE, df=FALSE)
-  assign(outputnames[i],zonalvals)
-  end <- Sys.time()
-  process <- end - start
-  print(paste0(inputnames[i], "Process=", process))
 }
 
 
