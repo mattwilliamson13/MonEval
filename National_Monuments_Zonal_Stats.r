@@ -204,4 +204,4 @@ for(i in 1:nrow(PA.df)) {
 }
 
 # output PA.df to workspace file
-save(PA.df, file=paste(infolder,"/PA_zonal_stats.RData", sep=""))
+save(PA.df, file=paste(infolder,"/PA_zonal_stats2.RData", sep=""))
