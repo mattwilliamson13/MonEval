@@ -185,7 +185,7 @@ state.majority <- stateMajority$STATE  # vector of majority states to include in
 ### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME
 
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
-outputvars <- c("mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "system.richness", "system.aw.richness", "system.rw.richness", "system.rw.aw.richness", "bailey.majority", "state.majority")  # vector of names of all output variables
+outputvars <- c("mean.climate","max.climate","mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "system.richness", "system.aw.richness", "system.rw.richness", "system.rw.aw.richness", "bailey.majority", "state.majority")  # vector of names of all output variables
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
@@ -204,4 +204,4 @@ for(i in 1:nrow(PA.df)) {
 }
 
 # output PA.df to workspace file
-save(PA.df, file=paste(infolder,"/PA_zonal_stats2.RData", sep=""))
+save(PA.df, file=paste(infolder,"/PA_zonal_stats3.RData", sep=""))

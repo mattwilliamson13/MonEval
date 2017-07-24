@@ -11,11 +11,13 @@ library(maptools)
 library(ggplot2)
 library(RColorBrewer)
 library(ggsn)
+library(gridExtra)
+library(diveRsity)
 
 infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set folder holding input data
 
 # load in dataframe with output variables for PAs
-load(paste(infolder,"/PA_zonal_stats.RData", sep=""))
+load(paste(infolder,"/PA_zonal_stats2.RData", sep=""))
 
 # load spatial data
 PA <- st_read(paste(infolder, "/PA.shp", sep=""))
@@ -114,36 +116,70 @@ ggplot() +
 
 tol21rainbow= c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#77CCCC", "#117744", "#44AA77", "#88CCAA", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788")
 ggplot() +
-  geom_sf(data=bailey, aes(fill=DIVISION), color=NA) +
+  geom_sf(data=bailey, aes(fill=DIVISION), color=NA, alpha=0.75) +
   scale_fill_manual("Bailey Division", values=tol21rainbow) + 
-  geom_sf(data=PA, fill=NA, color="black")
+  geom_sf(data=PA, fill="black", color=NA)
 
 # same thing, but only NMs overlaid
 PA.nm <- filter(PA, DesigType=="National Monument")
 ggplot() +
-  geom_sf(data=bailey, aes(fill=DIVISION), color=NA) +
+  geom_sf(data=bailey, aes(fill=DIVISION), color=NA, alpha=0.75) +
   scale_fill_manual("Bailey Division", values=tol21rainbow) + 
-  geom_sf(data=PA.nm, fill=NA, color="black")
+  geom_sf(data=PA.nm, fill="black", color=NA)
   
 
 #############################################################
-# Compare mean richness of mammals between PNMs and CPAs
+# Compare mean species richness between PNMs and CPAs
 
 PA.mean.mammal <- filter(PA.df, mean.rich.mammal)
 
 # all divisions combined
-ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.mammal)) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+p1 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.mammal, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Mammals") +
+  labs(y="Species richness")
+p2 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.bird, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Birds") +
+  labs(y="Species richness")
+p3 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.reptile, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Reptiles") +
+  labs(y="Species richness")
+p4 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.amphib, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Amphibians") +
+  labs(y="Species richness")
+p5 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.fish, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Fish") +
+  labs(y="Species richness")
+p6 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.tree, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Trees") +
+  labs(y="Species richness")
+multiplot(p1,p2,p3,p4,p5,p6, cols=6)
 
 
 ggplot() +
   geom_boxplot(data=PA.df, aes(x=bailey.majority, y=mean.rich.mammal, fill=OrigDesigAuth)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
 
+
 ggplot() +
   geom_boxplot(data=PA.df, aes(x=bailey.majority, y=mean.rich.bird, fill=DesigAuth)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+
+
+
+
+
 
 
 
