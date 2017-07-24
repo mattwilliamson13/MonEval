@@ -17,7 +17,7 @@ library(diveRsity)
 infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set folder holding input data
 
 # load in dataframe with output variables for PAs
-load(paste(infolder,"/PA_zonal_stats2.RData", sep=""))
+load(paste(infolder,"/PA_zonal_stats3.RData", sep=""))
 
 # load spatial data
 PA <- st_read(paste(infolder, "/PA.shp", sep=""))
@@ -129,11 +129,8 @@ ggplot() +
   
 
 #############################################################
-# Compare mean species richness between PNMs and CPAs
+# Compare mean species richness between PNMs and CPAs (for all divisions combined)
 
-PA.mean.mammal <- filter(PA.df, mean.rich.mammal)
-
-# all divisions combined
 p1 <- ggplot() +
   geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.mammal, fill=OrigDesigAuth), width=0.5) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
@@ -167,6 +164,43 @@ p6 <- ggplot() +
 multiplot(p1,p2,p3,p4,p5,p6, cols=6)
 
 
+#############################################################
+# Compare max species richness between PNMs and CPAs (for all divisions combined)
+
+p1 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.mammal, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Mammals") +
+  labs(y="Species richness")
+p2 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.bird, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Birds") +
+  labs(y="Species richness")
+p3 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.reptile, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Reptiles") +
+  labs(y="Species richness")
+p4 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.amphib, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Amphibians") +
+  labs(y="Species richness")
+p5 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.fish, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Fish") +
+  labs(y="Species richness")
+p6 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.tree, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Trees") +
+  labs(y="Species richness")
+multiplot(p1,p2,p3,p4,p5,p6, cols=6)
+
+
+
 ggplot() +
   geom_boxplot(data=PA.df, aes(x=bailey.majority, y=mean.rich.mammal, fill=OrigDesigAuth)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
@@ -179,7 +213,18 @@ ggplot() +
 
 
 
-
+# Compare climate velocities
+p1 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.climate, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Mean backward climate velocity") +
+  labs(y="Mean backward climate velocity")
+p2 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.climate, fill=OrigDesigAuth), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Max backward climate velocity") +
+  labs(y="Max backward climate velocity")
+multiplot(p1,p2,cols=2)
 
 
 
