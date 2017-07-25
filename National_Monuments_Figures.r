@@ -1,3 +1,6 @@
+# GRAPHICAL ANALYSIS OF BIOLOGICAL VARIABLES
+
+
 library(raster)
 library(sp)
 library(sf)
@@ -36,7 +39,21 @@ states <- st_read(paste(infolder, "/states2.shp", sep=""))
 # remove two NMs that were designated by inter-agency agreement
 PA <- filter(PA, DesigAuth %in% c("Congress","President"))
 PA.df <- filter(PA.df, DesigAuth %in% c("Congress","President"))
-# might also be worth creating a new designating authority category for things that started as presidential NMs but are now congressional designations
+
+# drop variables that are no longer needed or inaccurate
+drops <- c("OrigAntiq", "AntiqYear", "GapStatus", "IucnCat", "OrigDesigAuth")
+PA.df <- PA.df[ , !(names(PA.df) %in% drops)]
+
+# Create a new Designation Mode variable to distinguish PAs that started as presidential NMs but are now congressional designations (call this variable DesigMode)
+select.units <- c("Petrified Forest National Park", "Lassen National Park", "Grand Canyon National Park", "Pinnacles National Park", "Olympic National Park", 
+                  "Zion National Park", "Acadia National Park", "Great Basin National Park", "Bryce Canyon National Park", "Carlsbad Caverns National Park", 
+                  "Arches National Park", "Great Sand Dunes National Park", "Death Valley National Park", "Saguaro National Park", 
+                  "Black Canyon of the Gunnison National Park", "Dry Tortugas National Park", "Joshua Tree National Park", "Capitol Reef National Park", 
+                  "Channel Islands National Park", "Gulf Islands National Seashore", "Grand Teton National Park")
+PA.df$DesigMode <- PA.df$DesigAuth
+PA.df$DesigMode[which(PA.df$UnitName %in% select.units)] <- "President then Congress"
+
+
 
 
 ####################################################################################
@@ -74,6 +91,7 @@ ggplot(data=PA, aes(x=EstabYear, y=area_ac)) +
 
 
 
+
 #################################################################################################
 ### FIGURE 1: MAP OF PROTECTED AREAS COLOR CODED BY DESIGNATION TYPE
 
@@ -97,6 +115,7 @@ ggplot() +
 
 
 
+
 ##########################################################################################
 ### BOXPLOT OF Congressional versus presidential PAs by Bailey's division
 
@@ -109,6 +128,7 @@ PA.nm <- filter(PA.df, DesigType=="National Monument")
 ggplot() +
   geom_bar(data=PA.nm, aes(x = bailey.majority, fill=DesigAuth)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+
 
 
 ##################################################################
@@ -128,104 +148,170 @@ ggplot() +
   geom_sf(data=PA.nm, fill="black", color=NA)
   
 
-#############################################################
-# Compare mean species richness between PNMs and CPAs (for all divisions combined)
-
-p1 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.mammal, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
-  ggtitle("Mammals") +
-  labs(y="Species richness")
-p2 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.bird, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
-  ggtitle("Birds") +
-  labs(y="Species richness")
-p3 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.reptile, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
-  ggtitle("Reptiles") +
-  labs(y="Species richness")
-p4 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.amphib, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
-  ggtitle("Amphibians") +
-  labs(y="Species richness")
-p5 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.fish, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
-  ggtitle("Fish") +
-  labs(y="Species richness")
-p6 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.rich.tree, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
-  ggtitle("Trees") +
-  labs(y="Species richness")
-multiplot(p1,p2,p3,p4,p5,p6, cols=6)
-
 
 #############################################################
-# Compare max species richness between PNMs and CPAs (for all divisions combined)
+# Compare SPECIES RICHNESS between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
 
+# mean species richness plots
 p1 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.mammal, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=mean.rich.mammal, fill=DesigMode), width=0.5) +
+  theme(legend.position="none", plot.title = element_text(hjust = 0.5), axis.title.x=element_blank(), axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
   ggtitle("Mammals") +
-  labs(y="Species richness")
+  labs(y="Mean species richness", x=NULL)
 p2 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.bird, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=mean.rich.bird, fill=DesigMode), width=0.5) +
+  theme(legend.position="none", plot.title = element_text(hjust = 0.5), axis.title.x=element_blank(), axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
   ggtitle("Birds") +
-  labs(y="Species richness")
+  labs(y=NULL, x=NULL)
 p3 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.reptile, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=mean.rich.reptile, fill=DesigMode), width=0.5) +
+  theme(legend.position="none", plot.title = element_text(hjust = 0.5), axis.title.x=element_blank(), axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
   ggtitle("Reptiles") +
-  labs(y="Species richness")
+  labs(y=NULL, x=NULL) 
 p4 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.amphib, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=mean.rich.amphib, fill=DesigMode), width=0.5) +
+  theme(legend.position="none", plot.title = element_text(hjust = 0.5), axis.title.x=element_blank(), axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
   ggtitle("Amphibians") +
-  labs(y="Species richness")
+  labs(y=NULL, x=NULL)
 p5 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.fish, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=mean.rich.fish, fill=DesigMode), width=0.5) +
+  theme(legend.position="none", plot.title = element_text(hjust = 0.5), axis.title.x=element_blank(), axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
   ggtitle("Fish") +
-  labs(y="Species richness")
+  labs(y=NULL, x=NULL)
 p6 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.rich.tree, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=mean.rich.tree, fill=DesigMode), width=0.5) +
+  theme(legend.position="none", plot.title = element_text(hjust = 0.5), axis.title.x=element_blank(), axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
   ggtitle("Trees") +
-  labs(y="Species richness")
-multiplot(p1,p2,p3,p4,p5,p6, cols=6)
+  labs(y=NULL, x=NULL)
+# maximum species richness plots
+p7 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=max.rich.mammal, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y="Maximum species richness")
+p8 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=max.rich.bird, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y=NULL)
+p9 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=max.rich.reptile, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y=NULL) 
+p10 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=max.rich.amphib, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y=NULL)
+p11 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=max.rich.fish, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y=NULL)
+p12 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=max.rich.tree, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y=NULL)
+multiplot(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12, cols=6)   # combine in single plot
 
 
 
-ggplot() +
-  geom_boxplot(data=PA.df, aes(x=bailey.majority, y=mean.rich.mammal, fill=OrigDesigAuth)) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+
+#############################################################
+# Compare ECOLOGICAL SYSTEM RICHNESS between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
+
+# raw system richness
+p13 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=system.richness, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y="System richness") + 
+  ggtitle("Raw")
+# area-weighted system richness
+p14 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=system.aw.richness, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y=NULL) + 
+  ggtitle("Area-weighted")
+# rarity-weighted system richness
+p15 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=system.rw.richness, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y=NULL) + 
+  ggtitle("Rarity-weighted")
+# area- and rarity-weighted system richness
+p16 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=system.rw.aw.richness, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y=NULL) + 
+  ggtitle("Area- and rarity-weighted")
+multiplot(p13,p14,p15,p16, cols=4)   # combine in single plot
 
 
-ggplot() +
-  geom_boxplot(data=PA.df, aes(x=bailey.majority, y=mean.rich.bird, fill=DesigAuth)) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
 
+#############################################################
+# Compare BACKWARD CLIMATE VELOCITY between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
 
-
-
-# Compare climate velocities
-p1 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=mean.climate, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
-  ggtitle("Mean backward climate velocity") +
+# mean BCV plot
+p17 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=mean.climate, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
   labs(y="Mean backward climate velocity")
-p2 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=OrigDesigAuth, y=max.climate, fill=OrigDesigAuth), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5)) +
-  ggtitle("Max backward climate velocity") +
-  labs(y="Max backward climate velocity")
-multiplot(p1,p2,cols=2)
+# max BCV plot
+p18 <- ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=max.climate, fill=DesigMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y="Maximum backward climate velocity")
+multiplot(p17,p18, cols=2)   # combine in single plot
 
+
+
+###########################################################
+# 2-way ANOVAs test whether envi. response variable depends on Designating Authority (president vs. congress) and if there is an interaction with Bailey's division
+anova(lm(mean.rich.mammal ~ DesigAuth * bailey.majority, data=PA.df))
 
 
 
