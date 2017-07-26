@@ -93,7 +93,7 @@ ggplot(data=PA, aes(x=EstabYear, y=area_ac)) +
 
 
 #################################################################################################
-### FIGURE 1: MAP OF PROTECTED AREAS COLOR CODED BY DESIGNATION TYPE
+### MAP OF PROTECTED AREAS COLOR CODED BY DESIGNATION TYPE
 
 # NOTE: can't map a multipolygon layer using geom_sf, so we'll need to go 
   # back and generate a non-unioned fedlands layer if we want to include in the plot
@@ -142,15 +142,25 @@ ggplot() +
 
 # same thing, but only NMs overlaid
 PA.nm <- filter(PA, DesigType=="National Monument")
+
 ggplot() +
   geom_sf(data=bailey, aes(fill=DIVISION), color=NA, alpha=0.75) +
   scale_fill_manual("Bailey Division", values=tol21rainbow) + 
   geom_sf(data=PA.nm, fill="black", color=NA)
   
+# distinguish between PNMs and CPAs
+PA.pnm <- filter(PA, DesigAuth=="President")
+PA.other <- filter(PA, DesigAuth!="President")
+ggplot() +
+  geom_sf(data=bailey, aes(fill=DIVISION), color=NA, alpha=0.75) +
+  scale_fill_manual("Bailey Division", values=tol21rainbow) + 
+  geom_sf(data=PA.pnm, fill="black", color=NA) +
+  geom_sf(data=PA.other, fill="grey40", color=NA)
+
 
 
 #############################################################
-# Compare SPECIES RICHNESS between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
+# Boxplots comparing SPECIES RICHNESS between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
 
 # mean species richness plots
 p1 <- ggplot() +
@@ -242,9 +252,18 @@ multiplot(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12, cols=6)   # combine in single 
 
 
 
-
 #############################################################
-# Compare ECOLOGICAL SYSTEM RICHNESS between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
+# Boxplots comparing ECOLOGICAL SYSTEM RICHNESS between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
+
+# Probably none of these metrics is really an appropriate measure. 
+# Raw richness does not account for differences in area (i.e., sampling effort) between PAs
+# Area weighted overcorrects because species-area curve is asymptotic, not linear
+# Rarity weighted might be OK, but still needs to adjust for area affect correctly
+# One option might be to use rarefaction approach:
+  # 1. For each PA, get system value for each cell within boundaries
+  # 2. Randomly sample n cells (where n= # cells within smallest PA)
+  # 3. Calculate richness in random sample (i.e., # of unique system values)
+  # 4. Resample 1000 times and calculate average richness across samples for each PA
 
 # raw system richness
 p13 <- ggplot() +
@@ -287,7 +306,7 @@ multiplot(p13,p14,p15,p16, cols=4)   # combine in single plot
 
 
 #############################################################
-# Compare BACKWARD CLIMATE VELOCITY between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
+# Boxplots comparing BACKWARD CLIMATE VELOCITY between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
 
 # mean BCV plot
 p17 <- ggplot() +
@@ -311,14 +330,16 @@ multiplot(p17,p18, cols=2)   # combine in single plot
 
 ###########################################################
 # 2-way ANOVAs test whether envi. response variable depends on Designating Authority (president vs. congress) and if there is an interaction with Bailey's division
-anova(lm(mean.rich.mammal ~ DesigAuth * bailey.majority, data=PA.df))
+
+response <- "mean.rich.amphib"   # name of response variable you want to test
+lm1 <- aov(get(response) ~ as.factor(DesigAuth) * as.factor(bailey.majority), data=PA.df)   # run two-way ANOVA
+res <- lm1$residuals  # extract residuals to check for normality
+hist(res,main="Histogram of residuals",xlab="Residuals")
+library(car)
+leveneTest(get(response) ~ as.factor(DesigAuth) * as.factor(bailey.majority), data=PA.df)  # test for equal variances
+summary(lm1)
+
+# NOTE THAT ANOVA IS NOT APPROPRIATE FOR MOST OF THESE TESTS BECAUSE OF VIOLATION OF EQUAL VARIANCES ASSUMPTION
 
 
-
-### test out map option
-map1 <- ggplot() +
-  geom_sf(data=states) +
-  scalebar(data=states, dist=100000, dd2km=FALSE, model="GRS80")
-  scalebar(data=bailey, dist=1000, height=0.05, st.dist=0.02, st.bottom=TRUE, st.size=8, dd2km=FALSE, model="GRS80")
-north2(map1, x=0.1, y=0.2, scale=0.1, symbol=16)
 
