@@ -103,29 +103,20 @@ rich.amphib.df.corrected <- data.frame(UnitName=c(rich.amphib.df$UnitName, missi
 
 
 
-### PA ZONAL STATS FOR ECOLOGICAL SYSTEM RICHNESS
+### PA ZONAL STATS FOR ECOLOGICAL SYSTEM RICHNESS (USING RAREFACTION METHOD TO ACCOUNT FOR DIFFERENCES IN AREA)
 
 PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
 ecol.systems <- raster::extract(natlandcover, PA.sp, na.rm=TRUE)  # list of ecological systems (by ID) within each PA
-
-# simple richness metric that doesn't account for variation in PA area or rarity of systems represented
-system.richness <- as.numeric(lapply(ecol.systems, function(x) length(unique(x))))  # number of different systems within each PA
-
-# rarity-weighted metric: higher values for PAs that include rarer ecological systems
-lc.table <- freq(natlandcover, progress = "text")
-lc.table.df <- as.data.frame(lc.table)  # get counts of each cover type within lower 48
-lc.table.df$rarity <- 1/lc.table.df$count  # calculate rarity score for each cover type as 1 / number of cells of that cover type
-
-system.rw.richness <- rep(NA, length(ecol.systems)) # preallocate vector for rarity weighted richness
-for(i in 1:length(ecol.systems)) {
-  tempA <- sort(unique(ecol.systems[[i]]))  # get list of cover types in PA
-  tempB <- lc.table.df$rarity[which(lc.table.df$value %in% tempA)]  # get rarity scores for these cover types
-  system.rw.richness[i] <- sum(tempB)  # sum the rarity scores
+nsamples <- 1000  # number of random samples you want to use for rarefaction
+mincells <- min(as.numeric(lapply(ecol.systems, function(x) length(x)))) # get smallest number of cells within a PA
+richness.mat <- matrix(nrow=length(ecol.systems), ncol=nsamples) # preallocate matrix to hold means of sample
+for(i in 1:nsamples) {  # loop through 1000 random samples
+  sample.data <- lapply(ecol.systems, function(x) sample(x, size=mincells, replace=FALSE))  # sample mincells (without replacement) from values for each PA
+  sample.richness <- as.numeric(lapply(sample.data, function(x) length(unique(x)))) # calculate number of unique values in sample (i.e., richness)
+  richness.mat[,i] <- sample.richness  # write richness values for sample i to matrix
 }
+system.richness.rare <- rowMeans(richness.mat)  # calculate mean across samples for each PA
 
-# richness metrics that control for PA area (since larger PAs should have greater system richness by virtue of sampling area alone)
-system.aw.richness <- system.richness/PA$area_ac
-system.rw.aw.richness <- system.rw.richness/PA$area_ac  # divide by PA area
 
 
 
@@ -185,7 +176,7 @@ state.majority <- stateMajority$STATE  # vector of majority states to include in
 ### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME
 
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
-outputvars <- c("mean.climate","max.climate","mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "system.richness", "system.aw.richness", "system.rw.richness", "system.rw.aw.richness", "bailey.majority", "state.majority")  # vector of names of all output variables
+outputvars <- c("mean.climate","max.climate","mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "system.richness.rare", "bailey.majority", "state.majority")  # vector of names of all output variables
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
@@ -193,15 +184,5 @@ names(PA.df)[(ncol(PA.df)-length(outputvars)+1):ncol(PA.df)] <- outputvars # giv
 rich.fish.amphib.df <- merge(rich.fish.df.corrected, rich.amphib.df.corrected, by="UnitName")
 PA.df <- merge(PA.df, rich.fish.amphib.df, by="UnitName")
 
-# add a new variable for ORIGINAL designating authority (i.e., find current parks and preserves that started out as presidential NMs but were later redesignated by Congress)
-PA.df$OrigDesigAuth <- rep(NA, nrow(PA.df))
-for(i in 1:nrow(PA.df)) {
-  if(is.na(PA.df$OrigAntiq[i])==TRUE) {
-    PA.df$OrigDesigAuth[i] <- PA.df$DesigAuth[i]
-  } else {
-    PA.df$OrigDesigAuth[i] <- "President"
-  }
-}
-
 # output PA.df to workspace file
-save(PA.df, file=paste(infolder,"/PA_zonal_stats3.RData", sep=""))
+save(PA.df, file=paste(infolder,"/PA_zonal_stats4.RData", sep=""))
