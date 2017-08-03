@@ -20,7 +20,7 @@ library(diveRsity)
 infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set folder holding input data
 
 # load in dataframe with output variables for PAs
-load(paste(infolder,"/PA_zonal_stats3.RData", sep=""))
+load(paste(infolder,"/PA_biological_variables.RData", sep=""))
 
 # load spatial data
 PA <- st_read(paste(infolder, "/PA.shp", sep=""))
@@ -255,53 +255,14 @@ multiplot(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12, cols=6)   # combine in single 
 #############################################################
 # Boxplots comparing ECOLOGICAL SYSTEM RICHNESS between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
 
-# Probably none of these metrics is really an appropriate measure. 
-# Raw richness does not account for differences in area (i.e., sampling effort) between PAs
-# Area weighted overcorrects because species-area curve is asymptotic, not linear
-# Rarity weighted might be OK, but still needs to adjust for area affect correctly
-# One option might be to use rarefaction approach:
-  # 1. For each PA, get system value for each cell within boundaries
-  # 2. Randomly sample n cells (where n= # cells within smallest PA)
-  # 3. Calculate richness in random sample (i.e., # of unique system values)
-  # 4. Resample 1000 times and calculate average richness across samples for each PA
-
-# raw system richness
-p13 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=DesigMode, y=system.richness, fill=DesigMode), width=0.5) +
+ggplot() +
+  geom_boxplot(data=PA.df, aes(x=DesigMode, y=system.richness.rare, fill=DesigMode), width=0.5) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
         axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
         panel.background = element_rect(fill='grey85', colour='black')) +
   scale_fill_grey(start=0, end=1) +
   labs(y="System richness") + 
-  ggtitle("Raw")
-# area-weighted system richness
-p14 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=DesigMode, y=system.aw.richness, fill=DesigMode), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
-        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
-        panel.background = element_rect(fill='grey85', colour='black')) +
-  scale_fill_grey(start=0, end=1) +
-  labs(y=NULL) + 
-  ggtitle("Area-weighted")
-# rarity-weighted system richness
-p15 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=DesigMode, y=system.rw.richness, fill=DesigMode), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
-        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
-        panel.background = element_rect(fill='grey85', colour='black')) +
-  scale_fill_grey(start=0, end=1) +
-  labs(y=NULL) + 
-  ggtitle("Rarity-weighted")
-# area- and rarity-weighted system richness
-p16 <- ggplot() +
-  geom_boxplot(data=PA.df, aes(x=DesigMode, y=system.rw.aw.richness, fill=DesigMode), width=0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
-        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
-        panel.background = element_rect(fill='grey85', colour='black')) +
-  scale_fill_grey(start=0, end=1) +
-  labs(y=NULL) + 
-  ggtitle("Area- and rarity-weighted")
-multiplot(p13,p14,p15,p16, cols=4)   # combine in single plot
+  ggtitle("Ecological system richness")
 
 
 
@@ -329,17 +290,32 @@ multiplot(p17,p18, cols=2)   # combine in single plot
 
 
 ###########################################################
-# 2-way ANOVAs test whether envi. response variable depends on Designating Authority (president vs. congress) and if there is an interaction with Bailey's division
+# 1-way ANOVA to test whether envi. response variable depends on Designating Authority (president vs. congress)
 
-response <- "mean.rich.amphib"   # name of response variable you want to test
-lm1 <- aov(get(response) ~ as.factor(DesigAuth) * as.factor(bailey.majority), data=PA.df)   # run two-way ANOVA
+response <- "mean.rich.tree"   # name of response variable you want to test
+lm1 <- aov(get(response) ~ as.factor(DesigMode), data=PA.df)   # run ANOVA
+res <- lm1$residuals  # extract residuals to check for normality
+hist(res, main="Histogram of residuals", xlab="Residuals")   # check for normality
+library(car)
+leveneTest(get(response) ~ as.factor(DesigMode), data=PA.df)  # test for equal variances (P < 0.05 is evidence of UNequal variances and invalidity of ANOVA)
+summary(lm1)
+TukeyHSD(lm1, conf.level=0.95)   # Tukey's Honest Significance Test to see which groups are significantly different (in terms of group means)
+
+
+
+###########################################################
+# 2-way ANOVA to test whether envi. response variable depends on Designating Authority (president vs. congress) 
+# AND if there is an interaction with Bailey's division
+
+# NOTE THAT STANDARD TWO-WAY ANOVA IS NOT APPROPRIATE FOR MOST OF THESE TESTS BECAUSE OF VIOLATION OF EQUAL VARIANCES ASSUMPTION
+
+response <- "mean.rich.mammal"   # name of response variable you want to test
+lm1 <- aov(get(response) ~ as.factor(DesigMode) * as.factor(bailey.majority), data=PA.df)   # run two-way ANOVA
 res <- lm1$residuals  # extract residuals to check for normality
 hist(res,main="Histogram of residuals",xlab="Residuals")
 library(car)
-leveneTest(get(response) ~ as.factor(DesigAuth) * as.factor(bailey.majority), data=PA.df)  # test for equal variances
+leveneTest(get(response) ~ as.factor(DesigMode) * as.factor(bailey.majority), data=PA.df)  # test for equal variances
 summary(lm1)
-
-# NOTE THAT ANOVA IS NOT APPROPRIATE FOR MOST OF THESE TESTS BECAUSE OF VIOLATION OF EQUAL VARIANCES ASSUMPTION
 
 
 
