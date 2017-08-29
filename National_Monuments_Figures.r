@@ -72,7 +72,7 @@ ggplot() +
 
 # boxplots of acreage of CPAs versus PNMs
 ggplot() +
-  geom_boxplot(data=PA, aes(x=DesigAuth, y=area_ac), fill=c("red","green","blue"), width=0.2) +
+  geom_boxplot(data=PA, aes(x=DesigAuth, y=area_ac), fill=c("red","green"), width=0.2) +
   scale_x_discrete(name="Designating authority") +
   scale_y_continuous(name="Protected area acreage") +
   theme_bw()
@@ -276,7 +276,7 @@ p17 <- ggplot() +
         axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
         panel.background = element_rect(fill='grey85', colour='black')) +
   scale_fill_grey(start=0, end=1) +
-  labs(y="Mean backward climate velocity")
+  labs(y="Mean climate refugial potential")
 # max BCV plot
 p18 <- ggplot() +
   geom_boxplot(data=PA.df, aes(x=DesigMode, y=max.climate, fill=DesigMode), width=0.5) +
@@ -284,12 +284,17 @@ p18 <- ggplot() +
         axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
         panel.background = element_rect(fill='grey85', colour='black')) +
   scale_fill_grey(start=0, end=1) +
-  labs(y="Maximum backward climate velocity")
+  labs(y="Maximum climate refugial potential")
 multiplot(p17,p18, cols=2)   # combine in single plot
 
 
 
-###########################################################
+
+
+##############################################################
+### STATISTICAL ANALYSIS
+
+
 # 1-way ANOVA to test whether envi. response variable depends on Designating Authority (president vs. congress)
 
 response <- "mean.rich.tree"   # name of response variable you want to test
@@ -303,7 +308,6 @@ TukeyHSD(lm1, conf.level=0.95)   # Tukey's Honest Significance Test to see which
 
 
 
-###########################################################
 # 2-way ANOVA to test whether envi. response variable depends on Designating Authority (president vs. congress) 
 # AND if there is an interaction with Bailey's division
 
