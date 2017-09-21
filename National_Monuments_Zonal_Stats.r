@@ -31,7 +31,7 @@ natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))
 climate <- raster(paste(infolder, "/climate.tif", sep=""))
 # lcv <- st_read()
 # lcv <- st_read()
-PA <- st_read(paste(infolder, "/PA.shp", sep=""), stringsAsFactors=FALSE)
+PA <- st_read(paste(infolder, "/PA_revised_9-21-17.shp", sep=""), stringsAsFactors=FALSE)
 # Fix duplicate PA names for five wilderness areas by adding a 1 or 2 to the PA name
 PA <- PA[order(PA$UnitName),]
 dupes <- which(PA$UnitName %in% c("Black Canyon Wilderness", "Coyote Mountains Wilderness", "Granite Mountain Wilderness", "Hells Canyon Wilderness", "Red Mountain Wilderness"))

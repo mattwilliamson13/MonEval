@@ -13,9 +13,10 @@ library(tidyverse)
 library(rvest)
 library(maptools)
 
-infolder <- "G:/NationalMonumentsData/" # folder where spatial data input layers are stored;
+infolder <- "C:/Users/Tyler/Google Drive/MonumentData/" # folder where spatial data input layers are stored;
                                         # MUST HAVE FORWARD SLASH AT END OF PATH
-infolder <- "D:/Data/MonumentData/"  # location on Schwartz server
+#infolder <- "D:/Data/MonumentData/"  # location on Schwartz server
+
 ######################################################################################################
 ### DATA PREP
 ######################################################################################################
@@ -24,7 +25,7 @@ infolder <- "D:/Data/MonumentData/"  # location on Schwartz server
 #### LOAD DATA ###
 
 # PAs (selected categories)
-PA <- st_read(paste(infolder,"Federal_PAs_5-12-17.shp", sep=""))
+PA <- st_read(paste(infolder,"Revised_Federal_PAs_9-20-17_repaired.shp", sep=""))
 PA <- PA %>%  # get rid of PAs smaller than 5,000 acres (minimum for wilderness designation)
   mutate(area_m2 = as.numeric(st_area(geometry))) %>%
   mutate(area_ac = as.numeric(area_m2/4046.86)) %>%

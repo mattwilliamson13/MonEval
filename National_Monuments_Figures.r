@@ -23,7 +23,7 @@ infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set fol
 load(paste(infolder,"/PA_biological_variables.RData", sep=""))
 
 # load spatial data
-PA <- st_read(paste(infolder, "/PA.shp", sep=""))
+PA <- st_read(paste(infolder, "/PA_revised_9-21-17.shp", sep=""))  # use this version of the PA shapefile that has duplicate Unit Names corrected - maps will be incorrect otherwise
 bailey <- st_read(paste(infolder, "/baileycor.shp", sep=""))
 rich.bird <- raster(paste(infolder, "/rich.bird.tif", sep=""))
 rich.mammal <- raster(paste(infolder, "/rich.mammal.tif", sep=""))
@@ -36,22 +36,19 @@ climate <- raster(paste(infolder, "/climate.tif", sep=""))
 fedlands <- st_read(paste(infolder, "/fedlandscrop.shp", sep=""))
 states <- st_read(paste(infolder, "/states2.shp", sep=""))
 
-# remove two NMs that were designated by inter-agency agreement
-PA <- filter(PA, DesigAuth %in% c("Congress","President"))
-PA.df <- filter(PA.df, DesigAuth %in% c("Congress","President"))
+# convert PA layer to dataframe and strip out geometry field
+PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
 
-# drop variables that are no longer needed or inaccurate
-drops <- c("OrigAntiq", "AntiqYear", "GapStatus", "IucnCat", "OrigDesigAuth")
-PA.df <- PA.df[ , !(names(PA.df) %in% drops)]
+# remove two NMs that were designated by inter-agency agreement
+PA <- filter(PA, CurDesAuth %in% c("Congress","President"))
+PA.df <- filter(PA.df, CurDesAuth %in% c("Congress","President"))
 
 # Create a new Designation Mode variable to distinguish PAs that started as presidential NMs but are now congressional designations (call this variable DesigMode)
-select.units <- c("Petrified Forest National Park", "Lassen National Park", "Grand Canyon National Park", "Pinnacles National Park", "Olympic National Park", 
-                  "Zion National Park", "Acadia National Park", "Great Basin National Park", "Bryce Canyon National Park", "Carlsbad Caverns National Park", 
-                  "Arches National Park", "Great Sand Dunes National Park", "Death Valley National Park", "Saguaro National Park", 
-                  "Black Canyon of the Gunnison National Park", "Dry Tortugas National Park", "Joshua Tree National Park", "Capitol Reef National Park", 
-                  "Channel Islands National Park", "Gulf Islands National Seashore", "Grand Teton National Park")
-PA.df$DesigMode <- PA.df$DesigAuth
-PA.df$DesigMode[which(PA.df$UnitName %in% select.units)] <- "President then Congress"
+PA.df$DesMode <- PA.df$CurDesAuth
+PA.df$DesMode[which(PA.df$CurDesAuth=="Congress" & PA.df$OriDesAuth=="President")] <- "President then Congress"
+PA$DesMode <- as.character(PA$DesigAuth)  # have to use class character (instead of default factor) to manually edit values in next step
+PA$DesMode[which(PA$UnitName %in% select.units)] <- "President then Congress"
+PA$DesMode <- as.factor(PA$DesigMode)  # convert back to factor
 
 
 
@@ -108,7 +105,7 @@ ggplot() +
   geom_sf(data=states, fill="grey85", color=NA) +  # light grey background for lower 48 states
   #geom_sf(data=fedlands.cast, fill="grey70", color=NA) +  # federal lands in darker grey
   geom_sf(data=states, fill=NA, color="white") +  # state outlines in darkest grey
-  geom_sf(data=PA, aes(fill=DesigAuth), color=NA) +  # protected areas on top
+  geom_sf(data=PA, aes(fill=DesigMode), color=NA, alpha=0.5) +  # protected areas on top
   ggtitle("Federal protected areas of the contiguous United States") +
   theme_bw() +
   scale_fill_discrete(name="Designating\nauthority")
