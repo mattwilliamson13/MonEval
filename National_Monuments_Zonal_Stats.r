@@ -14,9 +14,10 @@ library(maptools)
 library(ggplot2)
 
 #infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # location on Tyler's Google Drive
-infolder <- "D:/Data/MonumentData/Generated Data"  # location on Schwartz server
+infolder <- "D:/Data/MonumentData/Generated Data"  # location on Schwartz server (NEED TO ADD NEW PA LAYER AND NATURESERV RICHNESS RASTER)
 
 rasterOptions(tmpdir = "D:/RastTemp/", progress="text", overwrite=TRUE)  # turn on progress bar for raster operations
+
 
 ### READ IN PREPPED SPATIAL DATA
 
@@ -27,24 +28,16 @@ rich.tree <- raster(paste(infolder, "/rich.tree.tif", sep=""))
 rich.reptile <- raster(paste(infolder, "/rich.reptile.tif", sep=""))
 rich.fish <- st_read(paste(infolder, "/rich.fish.shp", sep=""), stringsAsFactors=FALSE)
 rich.amphib <- st_read(paste(infolder, "/rich.amphib.shp", sep=""), stringsAsFactors=FALSE)
+rich.natserv <- raster(paste(infolder, "/natserv.tif", sep=""))  # rarity weighted richness from NatureServ
 natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))
 climate <- raster(paste(infolder, "/climate.tif", sep=""))
-# lcv <- st_read()
-# lcv <- st_read()
 PA <- st_read(paste(infolder, "/PA_revised_9-21-17.shp", sep=""), stringsAsFactors=FALSE)
-# Fix duplicate PA names for five wilderness areas by adding a 1 or 2 to the PA name
-PA <- PA[order(PA$UnitName),]
-dupes <- which(PA$UnitName %in% c("Black Canyon Wilderness", "Coyote Mountains Wilderness", "Granite Mountain Wilderness", "Hells Canyon Wilderness", "Red Mountain Wilderness"))
-addon <- rep(c(1,2),length(dupes)/2)
-for(i in 1:length(dupes)) {
-  PA$UnitName[dupes[i]] <- paste(PA$UnitName[dupes[i]],addon[i], sep=" ")
-}
 
 
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
 
 PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
-inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile")  # rasters for which we want to calculate zonal stats
+inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile", "rich.natserv")  # rasters for which we want to calculate zonal stats
 outputnames <- paste(fun,inputnames,sep=".") # vectors that will hold output values
 for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
   start <- Sys.time()
@@ -99,10 +92,6 @@ rich.amphib.df.corrected <- data.frame(UnitName=c(rich.amphib.df$UnitName, missi
 
 
 
-# need to add code here for LCV and sector dominance
-
-
-
 ### PA ZONAL STATS FOR ECOLOGICAL SYSTEM RICHNESS (USING RAREFACTION METHOD TO ACCOUNT FOR DIFFERENCES IN AREA)
 
 PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
@@ -119,13 +108,12 @@ system.richness.rare <- rowMeans(richness.mat)  # calculate mean across samples 
 
 
 
-
 ### CLASSIFY PAs BY BAILEY DIVISION
 
 # determine which Bailey's ecoregions each PA intersects
 intersections <- st_intersects(PA, bailey) # find which bailey features intersect each PA
 count.int <- sapply(intersections, length) # get count of how many divisions intersect each polygon
-hist(count.int)  # look at histogram
+#hist(count.int)  # look at histogram
 
 # get majority division for each PA
 pi <- st_intersection(bailey, PA)  # get intersections between polygons in PA and bailey layers
@@ -176,13 +164,14 @@ state.majority <- stateMajority$STATE  # vector of majority states to include in
 ### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME
 
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
-outputvars <- c("mean.climate","max.climate","mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "system.richness.rare", "bailey.majority", "state.majority")  # vector of names of all output variables
+outputvars <- c("mean.climate","max.climate","mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "mean.rich.natserv", "max.rich.natserv", "system.richness.rare", "bailey.majority", "state.majority")  # vector of names of all output variables
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
 names(PA.df)[(ncol(PA.df)-length(outputvars)+1):ncol(PA.df)] <- outputvars # give names to new output variables in dataframe
 rich.fish.amphib.df <- merge(rich.fish.df.corrected, rich.amphib.df.corrected, by="UnitName")
 PA.df <- merge(PA.df, rich.fish.amphib.df, by="UnitName")
+PA_zonal.df <- PA.df
 
 # output PA.df to workspace file
-save(PA.df, file=paste(infolder,"/PA_zonal_stats4.RData", sep=""))
+save(PA_zonal.df, file=paste(infolder,"/PA_zonal_stats_10-2-17.RData", sep=""))
