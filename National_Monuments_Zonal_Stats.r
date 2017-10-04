@@ -129,7 +129,7 @@ baileyMajority <- totalArea %>%  # for each PA, keep the row with the division t
 bailey.majority <- baileyMajority$DIVISION  # vector of majority division to include in PA dataframe
 # Fix for Florida Keys Wilderness (part of Savanna Division), which doesn't overlap with the cropped bailey's layer 
 # and thus is skipped in the bailey.majority calculation. Need to manually insert Division value for this PA.
-bailey.majority <- c(bailey.majority[1:276],"Savanna Division", bailey.majority[277:808])
+bailey.majority <- c(bailey.majority[1:248],"Savanna Division", bailey.majority[249:808])
 
 
 
@@ -141,12 +141,10 @@ states.sp <- as(states, "Spatial")
 states.dissolve <- aggregate(states.sp, list(states.sp$STATE), FUN = function(x) x[1], dissolve = TRUE)
 states <- as(states.dissolve, "sf")
 states <- select(states, STATE)
-
 # determine which states each PA intersects
 intersections <- st_intersects(PA, states) # find which states intersect each PA
 count.int <- sapply(intersections, length) # get count of how many divisions intersect each polygon
 hist(count.int)  # look at histogram
-
 # get majority state for each PA
 pi <- st_intersection(states, PA)  # get intersections between polygons in PA and state layers
 piArea <- pi %>%   # get areas of intersections
@@ -162,12 +160,11 @@ stateMajority <- totalArea %>%  # for each PA, keep the row with the state that 
 state.majority <- stateMajority$STATE  # vector of majority states to include in PA dataframe
 
 
-### REORDER OUTPUTS FROM RASTER OPERATIONS
-# Output variables from raster extract are sorted by FID, not alphabetically like the rest, so need to reorder
-PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
-names.by.alpha <- PA.df$UnitName  # alphabetical vector of unit names
+### REORDER OUTPUTS FROM RASTER OPERATIONS ALPHABETICALLY
+# Output variables from raster extract are sorted by FID, but outputs from sp operations were sorted alphabetically because the dplyr function "group_by" was used and it automatically alphabetizes results
+names.by.alpha <- sort(PA$UnitName)  # alphabetical vector of unit names
 names.by.fid <- PA$UnitName   # vector of unit names by FID
-reorder <- match(names.by.alpha, names.by.fid)  # order in which elements from raster extract outputs should be reordered
+reorder <- match(names.by.alpha, names.by.fid)  # order in which elements from raster extract outputs should appear to be alphabetically ordered
 mean.climate <- mean.climate[reorder] 
 max.climate <- max.climate[reorder]
 mean.rich.bird <- mean.rich.bird[reorder]
@@ -180,10 +177,11 @@ mean.rich.reptile <- mean.rich.reptile[reorder]
 max.rich.reptile <- max.rich.reptile[reorder]
 mean.rich.natserv <- mean.rich.natserv[reorder]
 max.rich.natserv <- max.rich.natserv[reorder]
-system.rich.rare <- system.rich.rare[reorder]
+system.richness.rare <- system.richness.rare[reorder]
 
 ### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME
-
+PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
+PA.df <- PA.df[order(PA.df$UnitName),]  # sort original dataframe alphabetically
 outputvars <- c("mean.climate","max.climate","mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "mean.rich.natserv", "max.rich.natserv", "system.richness.rare", "bailey.majority", "state.majority")  # vector of names of all output variables
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
@@ -194,4 +192,4 @@ PA.df <- merge(PA.df, rich.fish.amphib.df, by="UnitName")
 PA_zonal.df <- PA.df
 
 # output PA.df to workspace file
-save(PA_zonal.df, file=paste(infolder,"/PA_zonal_stats_10-2-17.RData", sep=""))
+save(PA_zonal.df, file=paste(infolder,"/PA_zonal_stats_10-4-17.RData", sep=""))

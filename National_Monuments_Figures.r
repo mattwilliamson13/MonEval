@@ -21,7 +21,7 @@ infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set fol
 #infolder <- "D:/Data/MonumentData/Generated Data"  # location on Schwartz server
 
 # load in dataframe with output variables for PAs (object called PA_zonal.df)
-load(paste(infolder,"/PA_zonal_stats_10-2-17.RData", sep=""))
+load(paste(infolder,"/PA_zonal_stats_10-4-17.RData", sep=""))
 
 # load spatial data
 PA <- st_read(paste(infolder, "/PA_revised_9-21-17.shp", sep=""))  # use this version of the PA shapefile that has duplicate Unit Names corrected - maps will be incorrect otherwise
@@ -245,12 +245,21 @@ multiplot(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12, cols=6)   # combine in single 
 
 ### Comparing RARITY WEIGHTED SPECIES RICHNESS (NatureServe) between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
 ggplot() +
-  geom_boxplot(data=PA_zonal.df, aes(x=DesMode, y=rich.natserv, fill=DesMode), width=0.5) +
+  geom_boxplot(data=PA_zonal.df, aes(x=DesMode, y=mean.rich.natserv, fill=DesMode), width=0.5) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
         axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
         panel.background = element_rect(fill='grey85', colour='black')) +
   scale_fill_grey(start=0, end=1) +
-  labs(y="Rarity-weighted species richness") + 
+  labs(y="Mean rarity-weighted species richness") + 
+  ggtitle("Imperiled species richness")
+
+ggplot() +
+  geom_boxplot(data=PA_zonal.df, aes(x=DesMode, y=max.rich.natserv, fill=DesMode), width=0.5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
+        axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
+        panel.background = element_rect(fill='grey85', colour='black')) +
+  scale_fill_grey(start=0, end=1) +
+  labs(y="Maximum rarity-weighted species richness") + 
   ggtitle("Imperiled species richness")
 
 
@@ -291,27 +300,25 @@ multiplot(p17,p18, cols=2)   # combine in single plot
 ##########################################################################
 
 ### Summary table of PA size and count by designation type
-DesType.summary <- PA.df %>%
+DesType.summary <- PA_zonal.df %>%
   group_by(CurDesType) %>%
   summarise(total.acres = sum(area_ac), 
             mean.acres = mean(area_ac),
             mean.acres = mean(area_ac),
             median.acres = median(area_ac),
             max.acres = max(area_ac),
-            min.acres = min(area_ac),
             count = length(CurDesType))
 
 ### Summary table of PA size and count by designation mode
-DesType.summary <- PA.df %>%
+DesMode.summary <- PA_zonal.df %>%
   group_by(DesMode) %>%
   summarise(total.acres = sum(area_ac), 
             mean.acres = mean(area_ac),
             mean.acres = mean(area_ac),
             median.acres = median(area_ac),
             max.acres = max(area_ac),
-            min.acres = min(area_ac),
             count = length(DesMode))
-
+# Note that it doesn't make much sense to include minimum PA size, since we artificially capped at 5,000 acres
 
 
 
