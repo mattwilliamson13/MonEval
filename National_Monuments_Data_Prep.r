@@ -151,7 +151,7 @@ for(k in 1:length(croprastnames)) {
   assign(croprastnames[k], temp4)
 }
 
-
+### WRITE CROPPED LAYERS TO GOOGLE DRIVE
 for(l in 1:length(croplayernames)) {
   temp <- as(get(croplayernames[l]),"sf")
   st_write(temp, paste0("D:/Data/MonumentData/Generated Data/",croplayernames[l],".shp"))

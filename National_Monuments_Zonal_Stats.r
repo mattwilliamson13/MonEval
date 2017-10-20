@@ -32,7 +32,10 @@ rich.natserv <- raster(paste(infolder, "/natserv.tif", sep=""))  # rarity weight
 natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))
 climate <- raster(paste(infolder, "/climate.tif", sep=""))
 PA <- st_read(paste(infolder, "/PA_revised_9-21-17.shp", sep=""), stringsAsFactors=FALSE)
-
+PA <- PA %>%  # calculate areas again after cropping to lower 48
+  mutate(cropped_area_m2 = as.numeric(st_area(geometry))) %>%
+  mutate(cropped_area_ac = as.numeric(cropped_area_m2/4046.86)) %>%
+  mutate(cropped_fraction = as.numeric(1-cropped_area_m2/area_m2))
 
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
 
@@ -64,7 +67,10 @@ temp.rich.fish <- st_intersection(rich.fish, PA) %>%  # intersect PAs and richne
   mutate(overlapProportion = intersectPolyArea/sumIntersectArea) %>% # get the proportion of the summed intersect areas associated with each intersect polygon (these are the "weights")
   mutate(weightedValue = overlapProportion * Join_Count) %>%  # weighted value = weight x richness value
   group_by(UnitName) %>%
-  summarise(weightedMean = sum(weightedValue), max=max(Join_Count))
+  summarise(weightedMean = sum(weightedValue), max=max(Join_Count), prop.nonNA=mean(sumIntersectArea)/mean(cropped_area_m2))  # get weighted mean, maximum, and proportion of the total PA area with non-NA values
+# for those PAs with less than 90% coverage of non-NA richness data, assign overall NA value
+temp.rich.fish$weightedMean[temp.rich.fish$prop.nonNA<0.9] <- NA
+temp.rich.fish$max[temp.rich.fish$prop.nonNA<0.9] <- NA
 # deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation
 rich.fish.df <- data.frame(UnitName=temp.rich.fish$UnitName, weightedMean=temp.rich.fish$weightedMean, max=temp.rich.fish$max, stringsAsFactors=FALSE) # create dataframe out of temp.rich.fish
 fish.PAnames <- rich.fish.df$UnitName  # get list of PA names in the richness output
@@ -81,9 +87,10 @@ temp.rich.amphib <- st_intersection(rich.amphib, PA) %>%  # intersect PAs and ri
   mutate(overlapProportion = intersectPolyArea/sumIntersectArea) %>% # get the proportion of the summed intersect areas associated with each intersect polygon (these are the "weights")
   mutate(weightedValue = overlapProportion * Join_Count) %>%  # weighted value = weight x richness value
   group_by(UnitName) %>%
-  summarise(weightedMean = sum(weightedValue), max=max(Join_Count))
-mean.rich.amphib <- temp.rich.amphib$weightedMean
-max.rich.amphib <- temp.rich.amphib$max
+  summarise(weightedMean = sum(weightedValue), max=max(Join_Count), prop.nonNA=mean(sumIntersectArea)/mean(cropped_area_m2))  # get weighted mean, maximum, and proportion of the total PA area with non-NA values
+# for those PAs with less than 90% coverage of non-NA richness data, assign overall NA value
+temp.rich.amphib$weightedMean[temp.rich.amphib$prop.nonNA<0.9] <- NA
+temp.rich.amphib$max[temp.rich.amphib$prop.nonNA<0.9] <- NA
 # deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation
 rich.amphib.df <- data.frame(UnitName=temp.rich.amphib$UnitName, weightedMean=temp.rich.amphib$weightedMean, max=temp.rich.amphib$max, stringsAsFactors=FALSE) # create dataframe out of temp.rich.amphib
 amphib.PAnames <- rich.amphib.df$UnitName  # get list of PA names in the richness output
