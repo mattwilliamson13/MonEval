@@ -20,8 +20,19 @@ library(diveRsity)
 infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set folder holding input data
 #infolder <- "D:/Data/MonumentData/Generated Data"  # location on Schwartz server
 
-# load in dataframe with output variables for PAs (object called PA_zonal.df)
+# load in dataframe with biological output variables for PAs (object called PA_zonal.df)
 load(paste(infolder,"/PA_zonal_stats_10-4-17.RData", sep=""))
+
+# load in csv of social output variables 
+socData <- read.csv(paste(infolder,"/socData.csv", sep=""))[,-c(2:9)]  # exclude variables already in PA_zonal.df
+socData$UnitName <- as.character(socData$UnitName)
+
+# fix weird character in Rio Grande Del Norte NM (accented i screws up the merge)
+socData$UnitName[590] <- "Rio Grande Del Norte National Monument"
+PA_zonal.df$UnitName[590] <- "Rio Grande Del Norte National Monument"
+
+# merge social and biological output variables into single dataframe
+PA_zonal.df <- merge(PA_zonal.df, socData, by="UnitName")
 
 # load spatial data
 PA <- st_read(paste(infolder, "/PA_revised_9-21-17.shp", sep=""))  # use this version of the PA shapefile that has duplicate Unit Names corrected - maps will be incorrect otherwise
@@ -68,6 +79,7 @@ ggplot() +
 ggplot() +
   geom_histogram(data=PA, aes(x = CurDesYear, fill=CurDesAuth), binwidth=1) +
   facet_wrap(~CurDesAuth, ncol=1)
+
 # boxplots of acreage of CPAs versus PNMs
 ggplot() +
   geom_boxplot(data=PA, aes(x=CurDesAuth, y=area_ac), fill=c("red","green"), width=0.2) +
@@ -84,7 +96,9 @@ ggplot() +
 ggplot(data=PA, aes(x=CurDesYear, y=area_ac)) +
   geom_point() +
   facet_wrap(~CurDesAuth)
-
+# density plots of 
+ggplot(data=PA, aes(x=area_ac, fill=DesMode)) +
+  geom_density(alpha=0.25)
 
 
 
@@ -138,7 +152,7 @@ ggplot() +
 
 
 ##########################################################################################
-### BOXPLOTS 
+### ECOLOGICAL VARIABLE BOXPLOTS 
 ##########################################################################################
 
 # Congressional versus presidential PAs by Bailey's division
@@ -244,7 +258,7 @@ multiplot(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12, cols=6)   # combine in single 
 
 
 ### Comparing RARITY WEIGHTED SPECIES RICHNESS (NatureServe) between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
-ggplot() +
+p13 <- ggplot() +
   geom_boxplot(data=PA_zonal.df, aes(x=DesMode, y=mean.rich.natserv, fill=DesMode), width=0.5) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
         axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
@@ -253,7 +267,7 @@ ggplot() +
   labs(y="Mean rarity-weighted species richness") + 
   ggtitle("Imperiled species richness")
 
-ggplot() +
+p14 <- ggplot() +
   geom_boxplot(data=PA_zonal.df, aes(x=DesMode, y=max.rich.natserv, fill=DesMode), width=0.5) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
         axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
@@ -264,7 +278,7 @@ ggplot() +
 
 
 ### Comparing ECOLOGICAL SYSTEM RICHNESS between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
-ggplot() +
+p15 <- ggplot() +
   geom_boxplot(data=PA_zonal.df, aes(x=DesMode, y=system.richness.rare, fill=DesMode), width=0.5) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
         axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
@@ -276,22 +290,148 @@ ggplot() +
 
 ### Comparing BACKWARD CLIMATE VELOCITY between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
 # mean BCV plot
-p17 <- ggplot() +
+p16 <- ggplot() +
   geom_boxplot(data=PA_zonal.df, aes(x=DesMode, y=mean.climate, fill=DesMode), width=0.5) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
         axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
         panel.background = element_rect(fill='grey85', colour='black')) +
   scale_fill_grey(start=0, end=1) +
-  labs(y="Mean climate refugial potential")
+  labs(y="Mean climate refugial potential") +
+  ggtitle("Climate refugial potential")
 # max BCV plot
-p18 <- ggplot() +
+p17 <- ggplot() +
   geom_boxplot(data=PA_zonal.df, aes(x=DesMode, y=max.climate, fill=DesMode), width=0.5) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1), legend.position="none", 
         axis.title.x=element_blank(), plot.title = element_text(hjust = 0.5), 
         panel.background = element_rect(fill='grey85', colour='black')) +
   scale_fill_grey(start=0, end=1) +
-  labs(y="Maximum climate refugial potential")
-multiplot(p17,p18, cols=2)   # combine in single plot
+  labs(y="Maximum climate refugial potential") +
+  ggtitle("Climate refugial potential")
+multiplot(p16,p17, cols=2)   # combine in single plot
+
+
+### Plot comparing mean values for ALL ecological variables
+multiplot(p1,p2,p3,p4,p5,p6,p13,p15,p16, cols=3)
+
+### Plot comparing max values for ALL ecological variables
+multiplot(p7,p8,p9,p10,p11,p12,p14,p15,p17, cols=3)
+
+
+
+
+##########################################################################################
+### SOCIAL VARIABLE BOXPLOTS 
+##########################################################################################
+
+
+### Correlation matrices for different buffer distances, with correlations of means above diagonal and correlations of maxes below diagonal
+
+varname <- "Farm"  # choose variable (LCV, Farm, Forestry, Mine, RealEst, or Const)
+
+attach(PA_zonal.df)
+mean.names <- paste0(varname,".mean.val.", c("10000","20000","50000","1e.05","250000"))    # list of variable names for means
+max.names <- paste0(varname,".max.val.", c("10000","20000","50000","1e.05","250000"))   # list of variable names for maxes
+cor.mat <- matrix(NA, nrow=5, ncol=5)
+for(i in 1:5) {
+  for(j in 1:5) {
+    if(i>j) {
+      cor.mat[i,j] <- cor(get(mean.names[i]), get(mean.names[j]), use="pairwise.complete.obs")
+    } else {
+      if(i<j) {
+        cor.mat[i,j] <- cor(get(max.names[i]), get(max.names[j]), use="pairwise.complete.obs")
+      } else {
+        cor.mat[i,j] <- sum(is.na(get(mean.names[i])))/nrow(PA_zonal.df)
+      }
+    }
+  }
+}
+cor.mat <- round(cor.mat, 2)
+rownames(cor.mat) <- colnames(cor.mat) <- c("10km","20km","50km","100km","250km")
+print(cor.mat)
+detach(PA_zonal.df)
+
+
+### Plots showing how distributions of means and maxes changes as a function of buffer distance
+
+varname <- "Const"  # choose variable (LCV, Farm, Forestry, Mine, RealEst, or Const)
+
+mean.varcols <- grep(paste0(varname,".mean"), names(PA_zonal.df))  # column indices for mean values of selected variable
+max.varcols <- grep(paste0(varname,".max"), names(PA_zonal.df))  # # column indices for mean values of selected variable
+mean.tidy <- PA_zonal.df %>%   # long-form version of dataframe for mean values
+  gather(bufferKm, meanVal, mean.varcols, factor_key=TRUE)
+max.tidy <- PA_zonal.df %>%   # long-form version of dataframe for mean values
+  gather(bufferKm, maxVal, max.varcols, factor_key=TRUE)
+
+mean.buffer.plot <- ggplot() +  # boxplot of mean values as a function of buffer distance
+  geom_boxplot(data=mean.tidy, aes(x=bufferKm, y=meanVal, fill=DesMode), width=0.5) +
+  scale_x_discrete(labels=c("10","20","50","100","250")) +
+  labs(y=paste0("Mean ", varname), x="")
+
+max.buffer.plot <- ggplot() +    # boxplot of maximum values as a function of buffer distance
+  geom_boxplot(data=max.tidy, aes(x=bufferKm, y=maxVal, fill=DesMode), width=0.5) +
+  scale_x_discrete(labels=c("10","20","50","100","250")) +
+  labs(y=paste0("Maximum ", varname), x="Buffer distance (km)")
+
+multiplot(mean.buffer.plot, max.buffer.plot, cols=1)   # combine in single plot
+
+
+### Density plots of mean values for social variables
+
+inreview.df <- PA_zonal.df %>%  # get values just for those NMs that were part of Trump's review
+  filter(InReview=="Yes")
+
+# Note: in geom_segment, will need to manually adjust height of tick marks (yend argument) showing values for NMs under review, 
+  # since y-axis range differs among density plots for different variables
+
+s1 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=LCV.mean.val.10000, fill=DesMode), alpha=0.25) + 
+  #scale_fill_manual(values=c("red","green","blue")) +
+  #scale_colour_manual(values=c("red","green","blue")) + 
+  labs(x="Mean LCV score") +
+  ggtitle("LCV score") +
+  geom_segment(data=inreview.df, mapping=aes(x=LCV.mean.val.10000, y=0, xend=LCV.mean.val.10000, yend=0.001), size=0.5, color="red")
+
+s2 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=Farm.mean.val.10000, fill=DesMode), alpha=0.25) + 
+  #scale_fill_manual(values=c("red","green","blue")) +
+  #scale_colour_manual(values=c("red","green","blue")) + 
+  labs(x="Percentage of workforce") +
+  ggtitle("Farming") +
+  geom_segment(data=inreview.df, mapping=aes(x=Farm.mean.val.10000, y=0, xend=Farm.mean.val.10000, yend=0.003), size=0.5, color="red")
+
+s3 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=Forestry.mean.val.10000, fill=DesMode), alpha=0.25) + 
+  #scale_fill_manual(values=c("red","green","blue")) +
+  #scale_colour_manual(values=c("red","green","blue")) + 
+  labs(x="Percentage of workforce") +
+  ggtitle("Forestry") +
+  geom_segment(data=inreview.df, mapping=aes(x=Forestry.mean.val.10000, y=0, xend=Forestry.mean.val.10000, yend=0.03), size=0.5, color="red")
+
+s4 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=Mine.mean.val.10000, fill=DesMode), alpha=0.25) + 
+  #scale_fill_manual(values=c("red","green","blue")) +
+  #scale_colour_manual(values=c("red","green","blue")) + 
+  labs(x="Percentage of workforce") +
+  ggtitle("Mining") +
+  geom_segment(data=inreview.df, mapping=aes(x=Mine.mean.val.10000, y=0, xend=Mine.mean.val.10000, yend=0.015), size=0.5, color="red")
+
+multiplot(s1, s2, s3, s4, cols=2)
+
+
+
+
+
+# working plot for tinkering with formatting
+s1 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=LCV.mean.val.10000, fill=DesMode), alpha=0.35) + 
+  geom_line(data=PA_zonal.df, aes(x=LCV.mean.val.10000, color=DesMode), stat="density", alpha=1, size=1) +
+  #scale_fill_manual(values=c("red","yellow","blue")) +
+  #scale_colour_manual(values=c("red","yellow","blue")) + 
+  labs(x="Mean LCV score") +
+  ggtitle("LCV score") +
+  geom_segment(data=inreview.df, mapping=aes(x=LCV.mean.val.10000, y=0, xend=LCV.mean.val.10000, yend=0.001), size=1, color="black")
+s1
+
 
 
 
@@ -319,6 +459,18 @@ DesMode.summary <- PA_zonal.df %>%
             max.acres = max(area_ac),
             count = length(DesMode))
 # Note that it doesn't make much sense to include minimum PA size, since we artificially capped at 5,000 acres
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -350,16 +502,10 @@ leveneTest(get(response) ~ as.factor(DesMode) * as.factor(bailey.majority), data
 summary(lm1)
 
 
-
-
-
-
-
-
- 
-
-
-
+### Non-parametric one-way ANOVA alternative
+# Kruskal Wallis does not assume normality, but does assume that groups have same distribution (except possibly different medians), so doesn't get around the issue of inequality of variances
+kruskal.test(mean.climate ~ as.factor(DesMode), data=PA_zonal.df)  # kruskal wallis test (null hypothesis: the groups are from the same distribution; i.e., no difference in response variable among groups)
+bartlett.test(mean.rich.bird ~ as.factor(DesMode), data=PA_zonal.df)  # bartlett test of equal variance (null hypothesis: equal variances)
 
 
 
