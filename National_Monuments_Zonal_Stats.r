@@ -38,7 +38,7 @@ PA <- st_read(paste(infolder, "/PA_revised_9-21-17.shp", sep=""), stringsAsFacto
 
 PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
 inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile", "rich.natserv")  # rasters for which we want to calculate zonal stats
-outputnames <- paste(fun,inputnames,sep=".") # vectors that will hold output values
+#outputnames <- paste(fun,inputnames,sep=".") # vectors that will hold output values
 for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
   start <- Sys.time()
   zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, weights=TRUE)  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
