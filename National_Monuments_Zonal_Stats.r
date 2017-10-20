@@ -37,19 +37,24 @@ PA <- PA %>%  # calculate areas again after cropping to lower 48
   mutate(cropped_area_ac = as.numeric(cropped_area_m2/4046.86)) %>%
   mutate(cropped_fraction = as.numeric(1-cropped_area_m2/area_m2))
 
+
+
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
 
 PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
 inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile", "rich.natserv")  # rasters for which we want to calculate zonal stats
 
-outputnames <- paste(fun,inputnames,sep=".") # vectors that will hold output values
-
 for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
   start <- Sys.time()
   zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, weights=TRUE)  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
-  meanvals <- sapply(zonalvals, function(x) sum(apply(x, 1, prod),na.rm=T) / sum(x[,2],na.rm=T))   # calculate weighted mean
+  prop.nonNA <- sapply(zonalvals, function(x) 1 - (sum(apply(x, 1, function(x) is.na(x))) / nrow(x)))  # get proportion of cells that are non-NA (i.e., have data)
+  # ABOVE DOESN'T ACCOUNT FOR DIFFERENCES IN PROPORTIONS OF CELLS WITHIN PA BOUNDARY
+  
+  meanvals <- sapply(zonalvals, function(x) sum(apply(x, 1, prod),na.rm=T) / sum(x[,2],na.rm=T))   # calculate weighted mean (excluding NA cells)
+  meanvals[which(prop.nonNA<0.9)] <- NA   # set mean val to NA for PAs with data available for <90% of their area
   assign(paste("mean",inputnames[i],sep="."),meanvals)  # write to output variable
-  maxvals <- sapply(zonalvals, function(x) max(x, na.rm=T))   # calculate max
+  maxvals <- sapply(zonalvals, function(x) max(x[,1], na.rm=T))   # calculate max
+  maxvals[which(prop.nonNA<0.9)] <- NA    # set max val to NA for PAs with data available for <90% of their area
   assign(paste("max",inputnames[i],sep="."),maxvals)   # write to output variable
   end <- Sys.time()
   process <- end - start   # calculate processing time
