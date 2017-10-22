@@ -109,8 +109,8 @@ rich.amphib.df.corrected <- data.frame(UnitName=c(rich.amphib.df$UnitName, missi
 
 # use rarefaction method to account for differences in PA area
 PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
-ecol.systems <- raster::extract(natlandcover, PA.sp, na.rm=TRUE)  # list of ecological systems (by ID) within each PA
-nsamples <- 100  # number of random samples you want to use for rarefaction
+ecol.systems <- raster::extract(natlandcover, PA.sp)  # list of ecological systems (by ID) within each PA
+nsamples <- 1000  # number of random samples you want to use for rarefaction
 mincells <- min(as.numeric(lapply(ecol.systems, function(x) length(x) - sum(is.na(x)))))  # get smallest number of non-NA cells within a PA
 richness.mat <- matrix(nrow=length(ecol.systems), ncol=nsamples) # preallocate matrix to hold means of sample
 for(i in 1:nsamples) {  # loop through 1000 random samples
@@ -119,6 +119,10 @@ for(i in 1:nsamples) {  # loop through 1000 random samples
   richness.mat[,i] <- sample.richness  # write richness values for sample i to matrix
 }
 system.richness.rare <- rowMeans(richness.mat)  # calculate mean across samples for each PA
+
+# set richness value to NA for PAs with <90 percent non-NA data
+prop.nonNA <- lapply(ecol.systems, function(x) 1 - sum(is.na(x)) / length(x))
+system.richness.rare[prop.nonNA<0.9] <- NA
 
 
 
