@@ -14,7 +14,7 @@ library(fasterize)
 
 
 infolder <- "D:/Data/MonumentData/Generated Data/"  # location on Schwartz server (NEED TO ADD NEW PA LAYER AND NATURESERV RICHNESS RASTER)
-outfolder <- "D:/Data/MonumentData/GeneratedData/"
+outfolder <- "D:/Data/MonumentData/Generated Data/"
 
 PA <- st_read(paste(infolder, "PA_revised_9-21-17.shp", sep=""), stringsAsFactors=FALSE)
 ind_will_sf <- st_read(paste(infolder,"ind_will_sf.shp", sep=""), stringsAsFactors=FALSE)
@@ -58,4 +58,4 @@ for (i in 1:length(buffer_dist)){
   }
 }
 
-write.csv(paste0(outfolder, "socData_10_20_17.csv"), row.names=FALSE)
+write.csv(soc.data.df, paste0(outfolder, "socData_10_20_17.csv"), row.names=FALSE)
