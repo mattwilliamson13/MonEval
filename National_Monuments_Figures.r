@@ -24,7 +24,7 @@ infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set fol
 load(paste(infolder,"/PA_zonal_stats_10-4-17.RData", sep=""))
 
 # load in csv of social output variables 
-socData <- read.csv(paste(infolder,"/socData.csv", sep=""))[,-c(2:9)]  # exclude variables already in PA_zonal.df
+socData <- read.csv(paste(infolder,"/socData_10_20_17.csv", sep=""))[,-c(2:9)]  # exclude variables already in PA_zonal.df
 socData$UnitName <- as.character(socData$UnitName)
 
 # fix weird character in Rio Grande Del Norte NM (accented i screws up the merge)
@@ -257,6 +257,74 @@ p12 <- ggplot() +
 multiplot(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12, cols=6)   # combine in single plot
 
 
+
+
+### Density plot for species richness
+inreview.df <- PA_zonal.df %>%  # get values just for those NMs that were part of Trump's review
+  filter(InReview=="Yes")
+
+# Note: in geom_segment, will need to manually adjust height of tick marks (yend argument) showing values for NMs under review
+# because y-axis range differs among density plots for different variables
+
+
+r1 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=mean.rich.bird, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Mean richness", y="Scaled density") +
+  ggtitle("Birds") +
+  geom_segment(data=inreview.df, mapping=aes(x=mean.rich.bird, y=0, xend=mean.rich.bird, yend=0.05), size=0.7, color="black") +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
+
+r2 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=mean.rich.mammal, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Mean richness", y="Scaled density") +
+  ggtitle("Mammals") +
+  geom_segment(data=inreview.df, mapping=aes(x=mean.rich.mammal, y=0, xend=mean.rich.mammal, yend=0.05), size=0.7, color="black") +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
+
+r3 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=mean.rich.fish, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Mean richness", y="Scaled density") +
+  ggtitle("Fish") +
+  geom_segment(data=inreview.df, mapping=aes(x=mean.rich.fish, y=0, xend=mean.rich.fish, yend=0.05), size=0.7, color="black") +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
+
+r4 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=mean.rich.amphib, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Mean richness", y="Scaled density") +
+  ggtitle("Amphibians") +
+  geom_segment(data=inreview.df, mapping=aes(x=mean.rich.amphib, y=0, xend=mean.rich.amphib, yend=0.05), size=0.7, color="black") +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
+
+r5 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=mean.rich.reptile, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Mean richness", y="Scaled density") +
+  ggtitle("Reptiles") +
+  geom_segment(data=inreview.df, mapping=aes(x=mean.rich.reptile, y=0, xend=mean.rich.reptile, yend=0.05), size=0.7, color="black") +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
+
+r6 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(mean.rich.tree, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Mean richness", y="Scaled density") +
+  ggtitle("Trees") +
+  geom_segment(data=inreview.df, mapping=aes(x=mean.rich.tree, y=0, xend=mean.rich.tree, yend=0.05), size=0.7, color="black") +
+  scale_color_discrete(name="Designating authority") +
+  scale_fill_discrete(name="Designating authority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
+
+multiplot(r1,r2,r3,r4,r5,r6, cols=3)
+
+
+
 ### Comparing RARITY WEIGHTED SPECIES RICHNESS (NatureServe) between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
 p13 <- ggplot() +
   geom_boxplot(data=PA_zonal.df, aes(x=DesMode, y=mean.rich.natserv, fill=DesMode), width=0.5) +
@@ -276,6 +344,16 @@ p14 <- ggplot() +
   labs(y="Maximum rarity-weighted species richness") + 
   ggtitle("Imperiled species richness")
 
+# density plots
+rw <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(mean.rich.natserv, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Mean rarity-weighted species richness", y="Scaled density") +
+  ggtitle("Imperiled and Critically Imperiled species richness") +
+  geom_segment(data=inreview.df, mapping=aes(x=mean.rich.natserv, y=0, xend=mean.rich.natserv, yend=0.05), size=0.7, color="black") +
+  scale_color_discrete(name="Designating authority") +
+  scale_fill_discrete(name="Designating authority") +
+  theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
+rw
 
 ### Comparing ECOLOGICAL SYSTEM RICHNESS between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
 p15 <- ggplot() +
@@ -287,6 +365,16 @@ p15 <- ggplot() +
   labs(y="System richness") + 
   ggtitle("Ecological system richness")
 
+# density plot
+es <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(system.richness.rare, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Rarefied richness", y="Scaled density") +
+  ggtitle("Ecological system richness") +
+  geom_segment(data=inreview.df, mapping=aes(x=system.richness.rare, y=0, xend=system.richness.rare, yend=0.05), size=0.7, color="black") +
+  scale_color_discrete(name="Designating authority") +
+  scale_fill_discrete(name="Designating authority") +
+  theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
+es
 
 ### Comparing BACKWARD CLIMATE VELOCITY between Presidential NMs, Congressional PAs, and PAs that started as PNMs but were later redesignated by Congress
 # mean BCV plot
@@ -309,6 +397,17 @@ p17 <- ggplot() +
   ggtitle("Climate refugial potential")
 multiplot(p16,p17, cols=2)   # combine in single plot
 
+cv <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(mean.climate, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Mean refugial potential", y="Scaled density") +
+  ggtitle("Climate refugial potential") +
+  geom_segment(data=inreview.df, mapping=aes(x=mean.climate, y=0, xend=mean.climate, yend=0.05), size=0.7, color="black") +
+  scale_color_discrete(name="Designating authority") +
+  scale_fill_discrete(name="Designating authority") +
+  theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
+cv
+
+
 
 ### Plot comparing mean values for ALL ecological variables
 multiplot(p1,p2,p3,p4,p5,p6,p13,p15,p16, cols=3)
@@ -320,13 +419,13 @@ multiplot(p7,p8,p9,p10,p11,p12,p14,p15,p17, cols=3)
 
 
 ##########################################################################################
-### SOCIAL VARIABLE BOXPLOTS 
+### SOCIAL VARIABLE DATA EXPLORATION
 ##########################################################################################
 
 
 ### Correlation matrices for different buffer distances, with correlations of means above diagonal and correlations of maxes below diagonal
 
-varname <- "Farm"  # choose variable (LCV, Farm, Forestry, Mine, RealEst, or Const)
+varname <- "Farm"  # choose variable (LCV, Farm, Forestry, or Mine)
 
 attach(PA_zonal.df)
 mean.names <- paste0(varname,".mean.val.", c("10000","20000","50000","1e.05","250000"))    # list of variable names for means
@@ -351,9 +450,39 @@ print(cor.mat)
 detach(PA_zonal.df)
 
 
+
+### Plots showing how percentage of NA values changes with buffer size
+inreview.df <- PA_zonal.df %>%  # get values just for those NMs that were part of Trump's review
+  filter(InReview=="Yes")
+
+varnames <- c("LCV", "Farm", "Forestry", "Mine")
+propNA.mat <- matrix(NA, nrow=length(varnames), ncol=5)  # blank matrix to hold proportion NA for each variable and buffer distance
+attach(PA_zonal.df)  
+#attach(inreview.df) # if you want to look at how proportion of PNMs under review with NA data changes with buffer distance
+for(i in 1:length(varnames)){
+  mean.names <- paste0(varnames[i],".mean.val.", c("10000","20000","50000","1e.05","250000"))    # list of variable names for means
+  for(j in 1:5){
+    propNA.mat[i,j] <- sum(is.na(get(mean.names[j])))/length(get(mean.names[j]))
+  }
+}
+detach(PA_zonal.df)  
+#detach(inreview.df)
+# convert to dataframe with columns for bufferdist and each soc variable
+propNA.df <- data.frame(bufferDist=c(10000,20000,50000,100000,250000), LCVscore=propNA.mat[1,], farming=propNA.mat[2,], forestry=propNA.mat[3,], mining=propNA.mat[4,], stringsAsFactors=FALSE)
+propNA.gather <- gather(data=propNA.df, key=socVar, value=propNA, LCVscore:mining)
+ggplot(data=propNA.gather, aes(x=bufferDist/1000, y=propNA, color=socVar)) +
+  geom_line() +
+  geom_point() +
+  scale_color_discrete(name="Social variable",
+                    breaks=c("LCVscore", "farming", "forestry", "mining"),
+                    labels=c("LCV score", "% farming", "% forestry", "% mining")) +
+  labs(x="Buffer distance (km)", y="Proportion missing data")
+
+
+
 ### Plots showing how distributions of means and maxes changes as a function of buffer distance
 
-varname <- "Const"  # choose variable (LCV, Farm, Forestry, Mine, RealEst, or Const)
+varname <- "LCV"  # choose variable (LCV, Farm, Forestry, Mine)
 
 mean.varcols <- grep(paste0(varname,".mean"), names(PA_zonal.df))  # column indices for mean values of selected variable
 max.varcols <- grep(paste0(varname,".max"), names(PA_zonal.df))  # # column indices for mean values of selected variable
@@ -375,62 +504,57 @@ max.buffer.plot <- ggplot() +    # boxplot of maximum values as a function of bu
 multiplot(mean.buffer.plot, max.buffer.plot, cols=1)   # combine in single plot
 
 
+
 ### Density plots of mean values for social variables
 
 inreview.df <- PA_zonal.df %>%  # get values just for those NMs that were part of Trump's review
   filter(InReview=="Yes")
 
-# Note: in geom_segment, will need to manually adjust height of tick marks (yend argument) showing values for NMs under review, 
-  # since y-axis range differs among density plots for different variables
+# Note: in geom_segment, will need to manually adjust height of tick marks (yend argument) showing values for NMs under review
+  # because y-axis range differs among density plots for different variables
+
+bufdist <- "10000"   # select buffer distance; must be character format, one of these choices: "10000","20000","50000","1e.05","250000")
 
 s1 <- ggplot() +
-  geom_density(data=PA_zonal.df, aes(x=LCV.mean.val.10000, fill=DesMode), alpha=0.25) + 
-  #scale_fill_manual(values=c("red","green","blue")) +
-  #scale_colour_manual(values=c("red","green","blue")) + 
-  labs(x="Mean LCV score") +
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("LCV.mean.val.",bufdist)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Mean LCV score", y="Scaled density") +
   ggtitle("LCV score") +
-  geom_segment(data=inreview.df, mapping=aes(x=LCV.mean.val.10000, y=0, xend=LCV.mean.val.10000, yend=0.001), size=0.5, color="red")
+  geom_segment(data=inreview.df, mapping=aes(x=get(paste0("LCV.mean.val.",bufdist)), y=0, xend=get(paste0("LCV.mean.val.",bufdist)), yend=0.05), size=1, color="black") +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
 
 s2 <- ggplot() +
-  geom_density(data=PA_zonal.df, aes(x=Farm.mean.val.10000, fill=DesMode), alpha=0.25) + 
-  #scale_fill_manual(values=c("red","green","blue")) +
-  #scale_colour_manual(values=c("red","green","blue")) + 
-  labs(x="Percentage of workforce") +
-  ggtitle("Farming") +
-  geom_segment(data=inreview.df, mapping=aes(x=Farm.mean.val.10000, y=0, xend=Farm.mean.val.10000, yend=0.003), size=0.5, color="red")
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("Farm.mean.val.",bufdist)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Percent workforce", y="Scaled density") +
+  ggtitle("Farming sector") +
+  geom_segment(data=inreview.df, mapping=aes(x=get(paste0("Farm.mean.val.",bufdist)), y=0, xend=get(paste0("Farm.mean.val.",bufdist)), yend=0.05), size=1, color="black") +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
 
 s3 <- ggplot() +
-  geom_density(data=PA_zonal.df, aes(x=Forestry.mean.val.10000, fill=DesMode), alpha=0.25) + 
-  #scale_fill_manual(values=c("red","green","blue")) +
-  #scale_colour_manual(values=c("red","green","blue")) + 
-  labs(x="Percentage of workforce") +
-  ggtitle("Forestry") +
-  geom_segment(data=inreview.df, mapping=aes(x=Forestry.mean.val.10000, y=0, xend=Forestry.mean.val.10000, yend=0.03), size=0.5, color="red")
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("Forestry.mean.val.",bufdist)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Percent workforce", y="Scaled density") +
+  ggtitle("Forestry sector") +
+  geom_segment(data=inreview.df, mapping=aes(x=get(paste0("Forestry.mean.val.",bufdist)), y=0, xend=get(paste0("Forestry.mean.val.",bufdist)), yend=0.05), size=1, color="black") +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
 
 s4 <- ggplot() +
-  geom_density(data=PA_zonal.df, aes(x=Mine.mean.val.10000, fill=DesMode), alpha=0.25) + 
-  #scale_fill_manual(values=c("red","green","blue")) +
-  #scale_colour_manual(values=c("red","green","blue")) + 
-  labs(x="Percentage of workforce") +
-  ggtitle("Mining") +
-  geom_segment(data=inreview.df, mapping=aes(x=Mine.mean.val.10000, y=0, xend=Mine.mean.val.10000, yend=0.015), size=0.5, color="red")
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("Mine.mean.val.",bufdist)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Percent workforce", y="Scaled density") +
+  ggtitle("Mining sector") +
+  geom_segment(data=inreview.df, mapping=aes(x=get(paste0("Mine.mean.val.",bufdist)), y=0, xend=get(paste0("Mine.mean.val.",bufdist)), yend=0.05), size=1, color="black") +
+  scale_color_discrete(name="Designating authority") +
+  scale_fill_discrete(name="Designating authority") +
+  theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
 
 multiplot(s1, s2, s3, s4, cols=2)
 
 
 
-
-
-# working plot for tinkering with formatting
-s1 <- ggplot() +
-  geom_density(data=PA_zonal.df, aes(x=LCV.mean.val.10000, fill=DesMode), alpha=0.35) + 
-  geom_line(data=PA_zonal.df, aes(x=LCV.mean.val.10000, color=DesMode), stat="density", alpha=1, size=1) +
-  #scale_fill_manual(values=c("red","yellow","blue")) +
-  #scale_colour_manual(values=c("red","yellow","blue")) + 
-  labs(x="Mean LCV score") +
-  ggtitle("LCV score") +
-  geom_segment(data=inreview.df, mapping=aes(x=LCV.mean.val.10000, y=0, xend=LCV.mean.val.10000, yend=0.001), size=1, color="black")
-s1
 
 
 

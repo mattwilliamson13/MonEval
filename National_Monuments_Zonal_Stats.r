@@ -37,19 +37,22 @@ PA <- PA %>%  # calculate areas again after cropping to lower 48
   mutate(cropped_area_ac = as.numeric(cropped_area_m2/4046.86)) %>%
   mutate(cropped_fraction = as.numeric(1-cropped_area_m2/area_m2))
 
+
+
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
 
 PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
 inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile", "rich.natserv")  # rasters for which we want to calculate zonal stats
 
-outputnames <- paste(fun,inputnames,sep=".") # vectors that will hold output values
-
 for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
   start <- Sys.time()
   zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, weights=TRUE)  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
-  meanvals <- sapply(zonalvals, function(x) sum(apply(x, 1, prod),na.rm=T) / sum(x[,2],na.rm=T))   # calculate weighted mean
+  prop.nonNA <- sapply(zonalvals, function(x) sum(x[which(is.na(x[,1])==FALSE),2]) / sum(x[,2]))  # get proportion of PA area that is non-NA (i.e., has value in raster layer)
+  meanvals <- sapply(zonalvals, function(x) sum(apply(x, 1, prod),na.rm=T) / sum(x[,2],na.rm=T))   # calculate weighted mean (excluding NA cells)
+  meanvals[which(prop.nonNA<0.9)] <- NA   # set mean val to NA for PAs with data available for <90% of their area
   assign(paste("mean",inputnames[i],sep="."),meanvals)  # write to output variable
-  maxvals <- sapply(zonalvals, function(x) max(x, na.rm=T))   # calculate max
+  maxvals <- sapply(zonalvals, function(x) max(x[,1], na.rm=T))   # calculate max
+  maxvals[which(prop.nonNA<0.9)] <- NA    # set max val to NA for PAs with data available for <90% of their area
   assign(paste("max",inputnames[i],sep="."),maxvals)   # write to output variable
   end <- Sys.time()
   process <- end - start   # calculate processing time
@@ -57,9 +60,10 @@ for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
 }
 
 
+
 ### PA ZONAL STATISTICS FOR VECTOR INPUTS ###
 
-# Mean richness
+# Fish richness
 temp.rich.fish <- st_intersection(rich.fish, PA) %>%  # intersect PAs and richness polygons
   mutate(intersectPolyArea =  as.numeric(st_area(geometry))) %>%  # calculate areas of intersection polygons
   group_by(UnitName) %>%  # group intersection polygons by PA
@@ -79,7 +83,7 @@ all.PAnames <- PA$UnitName  # get list of all PA names, including those missing 
 missing.fish.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.fish.df$UnitName)]  # find PAs missing from richness output
 rich.fish.df.corrected <- data.frame(UnitName=c(rich.fish.df$UnitName, missing.fish.PAnames), mean.rich.fish=c(rich.fish.df$weightedMean, rep(NA, length(missing.fish.PAnames))), max.rich.fish=c(rich.fish.df$max, rep(NA, length(missing.fish.PAnames))))  # add missing PAs to new dataframe with NA for mean and max richness value
 
-
+# Amphibian richness
 temp.rich.amphib <- st_intersection(rich.amphib, PA) %>%  # intersect PAs and richness polygons
   mutate(intersectPolyArea =  as.numeric(st_area(geometry))) %>%  # calculate areas of intersection polygons
   group_by(UnitName) %>%  # group intersection polygons by PA
@@ -101,28 +105,32 @@ rich.amphib.df.corrected <- data.frame(UnitName=c(rich.amphib.df$UnitName, missi
 
 
 
-### PA ZONAL STATS FOR ECOLOGICAL SYSTEM RICHNESS (USING RAREFACTION METHOD TO ACCOUNT FOR DIFFERENCES IN AREA)
+### PA ZONAL STATS FOR ECOLOGICAL SYSTEM RICHNESS ###
 
+# use rarefaction method to account for differences in PA area
 PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
-ecol.systems <- raster::extract(natlandcover, PA.sp, na.rm=TRUE)  # list of ecological systems (by ID) within each PA
+ecol.systems <- raster::extract(natlandcover, PA.sp)  # list of ecological systems (by ID) within each PA
 nsamples <- 1000  # number of random samples you want to use for rarefaction
-mincells <- min(as.numeric(lapply(ecol.systems, function(x) length(x)))) # get smallest number of cells within a PA
+mincells <- min(as.numeric(lapply(ecol.systems, function(x) length(x) - sum(is.na(x)))))  # get smallest number of non-NA cells within a PA
 richness.mat <- matrix(nrow=length(ecol.systems), ncol=nsamples) # preallocate matrix to hold means of sample
 for(i in 1:nsamples) {  # loop through 1000 random samples
-  sample.data <- lapply(ecol.systems, function(x) sample(x, size=mincells, replace=FALSE))  # sample mincells (without replacement) from values for each PA
+  sample.data <- lapply(ecol.systems, function(x) sample(x[is.na(x)==FALSE], size=mincells, replace=FALSE))  # sample mincells (without replacement) from non-NA values for each PA
   sample.richness <- as.numeric(lapply(sample.data, function(x) length(unique(x)))) # calculate number of unique values in sample (i.e., richness)
   richness.mat[,i] <- sample.richness  # write richness values for sample i to matrix
 }
 system.richness.rare <- rowMeans(richness.mat)  # calculate mean across samples for each PA
 
+# set richness value to NA for PAs with <90 percent non-NA data
+prop.nonNA <- lapply(ecol.systems, function(x) 1 - sum(is.na(x)) / length(x))
+system.richness.rare[prop.nonNA<0.9] <- NA
 
 
-### CLASSIFY PAs BY BAILEY DIVISION
+
+### CLASSIFY PAs BY BAILEY DIVISION ###
 
 # determine which Bailey's ecoregions each PA intersects
 intersections <- st_intersects(PA, bailey) # find which bailey features intersect each PA
 count.int <- sapply(intersections, length) # get count of how many divisions intersect each polygon
-#hist(count.int)  # look at histogram
 
 # get majority division for each PA
 pi <- st_intersection(bailey, PA)  # get intersections between polygons in PA and bailey layers
@@ -143,7 +151,7 @@ bailey.majority <- c(bailey.majority[1:248],"Savanna Division", bailey.majority[
 
 
 
-### CLASSIFY PAs BY STATE
+### CLASSIFY PAs BY STATE ###
 
 # dissolve states layer (one multipolygon feature per states)
 states <- st_read(paste(infolder, "/states2.shp", sep=""), stringsAsFactors=FALSE)
@@ -170,7 +178,9 @@ stateMajority <- totalArea %>%  # for each PA, keep the row with the state that 
 state.majority <- stateMajority$STATE  # vector of majority states to include in PA dataframe
 
 
-### REORDER OUTPUTS FROM RASTER OPERATIONS ALPHABETICALLY
+
+### REORDER OUTPUTS FROM RASTER OPERATIONS ALPHABETICALLY ###
+
 # Output variables from raster extract are sorted by FID, but outputs from sp operations were sorted alphabetically because the dplyr function "group_by" was used and it automatically alphabetizes results
 names.by.alpha <- sort(PA$UnitName)  # alphabetical vector of unit names
 names.by.fid <- PA$UnitName   # vector of unit names by FID
@@ -189,7 +199,10 @@ mean.rich.natserv <- mean.rich.natserv[reorder]
 max.rich.natserv <- max.rich.natserv[reorder]
 system.richness.rare <- system.richness.rare[reorder]
 
-### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME
+
+
+### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME AND SAVE TO DRIVE ###
+
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
 PA.df <- PA.df[order(PA.df$UnitName),]  # sort original dataframe alphabetically
 outputvars <- c("mean.climate","max.climate","mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "mean.rich.natserv", "max.rich.natserv", "system.richness.rare", "bailey.majority", "state.majority")  # vector of names of all output variables
@@ -202,4 +215,4 @@ PA.df <- merge(PA.df, rich.fish.amphib.df, by="UnitName")
 PA_zonal.df <- PA.df
 
 # output PA.df to workspace file
-save(PA_zonal.df, file=paste(infolder,"/PA_zonal_stats_10-4-17.RData", sep=""))
+save(PA_zonal.df, file=paste(infolder,"/PA_zonal_stats_10-22-17.RData", sep=""))
