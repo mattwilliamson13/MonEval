@@ -24,8 +24,8 @@ lower48.sp <- as(lower48, "Spatial") # convert lower48 sf layer to sp (so extent
 
 
 buffer_dist <- c(10000, 20000, 50000, 100000, 250000)
-var <- c("Farm", "Forestry", "Mine", "RealEst", "Const", "LCV")
-val_name <- c("max_Frm", "mx_FrNR", "mx_Mnng", "max_RE","mx_Cnst","LCVMedn")
+var <- c("Farm", "Forestry", "Mine", "LCV")
+val_name <- c("max_Frm", "mx_FrNR", "mx_Mnng", "LCVMedn")
 
 soc.data.df <- tbl_df(PA)[,-ncol(PA)]
 soc.data.df <- soc.data.df[order(soc.data.df$UnitName),]
