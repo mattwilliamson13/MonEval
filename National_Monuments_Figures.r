@@ -21,7 +21,7 @@ infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set fol
 #infolder <- "D:/Data/MonumentData/Generated Data"  # location on Schwartz server
 
 # load in dataframe with biological output variables for PAs (object called PA_zonal.df)
-load(paste(infolder,"/PA_zonal_stats_10-4-17.RData", sep=""))
+load(paste(infolder,"/PA_zonal_stats_10-22-17.RData", sep=""))
 
 # load in csv of social output variables 
 socData <- read.csv(paste(infolder,"/socData_10_20_17.csv", sep=""))[,-c(2:9)]  # exclude variables already in PA_zonal.df
@@ -62,6 +62,12 @@ PA <- filter(PA, CurDesAuth %in% c("Congress","President"))
 # From NONSPATIAL zonal stats layer, remove two NMs that were designated by inter-agency agreement
 PA_zonal.df <- filter(PA_zonal.df, CurDesAuth %in% c("Congress","President"))
 
+# calculate percent NA for each field in the dataset
+#sapply(PA_zonal.df, function(x) round(sum(is.na(x))/length(x)*100,1))
+
+# create new dataframe that only includes PNMs under review by Trump administration
+inreview.df <- PA_zonal.df %>%  # get values just for those NMs that were part of Trump's review
+  filter(InReview=="Yes")
 
 
 
@@ -96,9 +102,18 @@ ggplot() +
 ggplot(data=PA, aes(x=CurDesYear, y=area_ac)) +
   geom_point() +
   facet_wrap(~CurDesAuth)
-# density plots of 
-ggplot(data=PA, aes(x=area_ac, fill=DesMode)) +
-  geom_density(alpha=0.25)
+
+
+### SIZE OF PAs BY DESIGNATION MODE
+
+ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=log(cropped_area_ac), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Log of protected area size (acres)", y="Scaled density") +
+  ggtitle("PA area") +
+  geom_segment(data=inreview.df, mapping=aes(x=log(cropped_area_ac), y=0, xend=log(cropped_area_ac), yend=0.05), size=0.7, color="black") +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
 
 
 
@@ -260,12 +275,6 @@ multiplot(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12, cols=6)   # combine in single 
 
 
 ### Density plot for species richness
-inreview.df <- PA_zonal.df %>%  # get values just for those NMs that were part of Trump's review
-  filter(InReview=="Yes")
-
-# Note: in geom_segment, will need to manually adjust height of tick marks (yend argument) showing values for NMs under review
-# because y-axis range differs among density plots for different variables
-
 
 r1 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(x=mean.rich.bird, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
@@ -601,6 +610,12 @@ DesMode.summary <- PA_zonal.df %>%
 ##############################################################
 ### STATISTICAL ANALYSES
 ##############################################################
+
+
+### Calculate the quantile for each NM under review
+attach(PA_zonal.df)
+PA_zonal.df$mean.rich.mammal.qtl <- rank(mean.rich.mammal, na.last="keep")/sum(!is.na(mean.rich.mammal))
+
 
 ### 1-way ANOVA to test whether envi. response variable depends on Designating Authority (president vs. congress)
 response <- "mean.rich.tree"   # name of response variable you want to test
