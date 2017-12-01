@@ -611,6 +611,12 @@ DesMode.summary <- PA_zonal.df %>%
 ### STATISTICAL ANALYSES
 ##############################################################
 
+
+### Calculate the quantile for each NM under review
+attach(PA_zonal.df)
+PA_zonal.df$mean.rich.mammal.qtl <- rank(mean.rich.mammal, na.last="keep")/sum(!is.na(mean.rich.mammal))
+
+
 ### 1-way ANOVA to test whether envi. response variable depends on Designating Authority (president vs. congress)
 response <- "mean.rich.tree"   # name of response variable you want to test
 lm1 <- aov(get(response) ~ as.factor(DesMode), data=PA_zonal.df)   # run ANOVA
