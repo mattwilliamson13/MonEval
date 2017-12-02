@@ -66,4 +66,4 @@ for (i in 1:length(buffer_dist)){
   }
 }
 
-write.csv(paste0(outfolder, "socData_12_1_17.csv"), row.names=FALSE)
+write.csv(soc.data.df, paste0(outfolder, "socData_12_1_17.csv"), row.names=FALSE)
