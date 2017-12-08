@@ -24,7 +24,7 @@ infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # set fol
 load(paste(infolder,"/PA_zonal_stats_10-22-17.RData", sep=""))
 
 # load in csv of social output variables 
-socData <- read.csv(paste(infolder,"/socData_10_20_17.csv", sep=""))[,-c(2:9)]  # exclude variables already in PA_zonal.df
+socData <- read.csv(paste(infolder,"/socData_12_1_17.csv", sep=""))[,-c(2:9)]  # exclude variables already in PA_zonal.df
 socData$UnitName <- as.character(socData$UnitName)
 
 # fix weird character in Rio Grande Del Norte NM (accented i screws up the merge)
@@ -434,7 +434,7 @@ multiplot(p7,p8,p9,p10,p11,p12,p14,p15,p17, cols=3)
 
 ### Correlation matrices for different buffer distances, with correlations of means above diagonal and correlations of maxes below diagonal
 
-varname <- "Farm"  # choose variable (LCV, Farm, Forestry, or Mine)
+varname <- "Forestry"  # choose variable (LCV, Farm, Forestry, or Mine)
 
 attach(PA_zonal.df)
 mean.names <- paste0(varname,".mean.val.", c("10000","20000","50000","1e.05","250000"))    # list of variable names for means
@@ -491,7 +491,7 @@ ggplot(data=propNA.gather, aes(x=bufferDist/1000, y=propNA, color=socVar)) +
 
 ### Plots showing how distributions of means and maxes changes as a function of buffer distance
 
-varname <- "LCV"  # choose variable (LCV, Farm, Forestry, Mine)
+varname <- "Forestry"  # choose variable (LCV, Farm, Forestry, Mine)
 
 mean.varcols <- grep(paste0(varname,".mean"), names(PA_zonal.df))  # column indices for mean values of selected variable
 max.varcols <- grep(paste0(varname,".max"), names(PA_zonal.df))  # # column indices for mean values of selected variable
@@ -522,7 +522,7 @@ inreview.df <- PA_zonal.df %>%  # get values just for those NMs that were part o
 # Note: in geom_segment, will need to manually adjust height of tick marks (yend argument) showing values for NMs under review
   # because y-axis range differs among density plots for different variables
 
-bufdist <- "10000"   # select buffer distance; must be character format, one of these choices: "10000","20000","50000","1e.05","250000")
+bufdist <- "250000"   # select buffer distance; must be character format, one of these choices: "10000","20000","50000","1e.05","250000")
 
 s1 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(x=get(paste0("LCV.mean.val.",bufdist)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
@@ -612,41 +612,20 @@ DesMode.summary <- PA_zonal.df %>%
 ##############################################################
 
 
-### Calculate the quantile for each NM under review
+### Calculate the quantile value for each PA with respect to each variable
 attach(PA_zonal.df)
-PA_zonal.df$mean.rich.mammal.qtl <- rank(mean.rich.mammal, na.last="keep")/sum(!is.na(mean.rich.mammal))
+qtl.vars <- names(PA_zonal.df)[13:71]   # get names of quantitative variables for which we want to calculate quantile values
+for(i in 1:length(qtl.vars)) {  # loop through quantitative variables
+  qtls <- rank(get(qtl.vars[i]), na.last="keep")/sum(!is.na(get(qtl.vars[i])))
+  assign(paste0(qtl.vars[i],".qtl"), qtls)
+}
+detach(PA_zonal.df)
 
-
-### 1-way ANOVA to test whether envi. response variable depends on Designating Authority (president vs. congress)
-response <- "mean.rich.tree"   # name of response variable you want to test
-lm1 <- aov(get(response) ~ as.factor(DesMode), data=PA_zonal.df)   # run ANOVA
-res <- lm1$residuals  # extract residuals to check for normality
-hist(res, main="Histogram of residuals", xlab="Residuals")   # check for normality
-library(car)
-leveneTest(get(response) ~ as.factor(DesMode), data=PA_zonal.df)  # test for equal variances (P < 0.05 is evidence of UNequal variances and invalidity of ANOVA)
-summary(lm1)
-TukeyHSD(lm1, conf.level=0.95)   # Tukey's Honest Significance Test to see which groups are significantly different (in terms of group means)
-
-
-
-### 2-way ANOVA to test whether envi. response variable depends on Designating Authority (president vs. congress) 
-  # AND if there is an interaction with Bailey's division
-  # NOTE THAT STANDARD TWO-WAY ANOVA IS NOT APPROPRIATE FOR MOST OF THESE TESTS BECAUSE OF VIOLATION OF EQUAL VARIANCES ASSUMPTION
-response <- "mean.rich.mammal"   # name of response variable you want to test
-lm1 <- aov(get(response) ~ as.factor(DesMode) * as.factor(bailey.majority), data=PA_zonal.df)   # run two-way ANOVA
-res <- lm1$residuals  # extract residuals to check for normality
-hist(res,main="Histogram of residuals",xlab="Residuals")
-library(car)
-leveneTest(get(response) ~ as.factor(DesMode) * as.factor(bailey.majority), data=PA_zonal.df)  # test for equal variances
-summary(lm1)
-
-
-### Non-parametric one-way ANOVA alternative
-# Kruskal Wallis does not assume normality, but does assume that groups have same distribution (except possibly different medians), so doesn't get around the issue of inequality of variances
-kruskal.test(mean.climate ~ as.factor(DesMode), data=PA_zonal.df)  # kruskal wallis test (null hypothesis: the groups are from the same distribution; i.e., no difference in response variable among groups)
-bartlett.test(mean.rich.bird ~ as.factor(DesMode), data=PA_zonal.df)  # bartlett test of equal variance (null hypothesis: equal variances)
-
-
+# Look at percentile values for NMs under review
+var.name <- "Mine.mean.val.50000.qtl"
+reviewNM <- which(PA_zonal.df$InReview=="Yes")
+NM.qtls <- data.frame(UnitName = PA_zonal.df$UnitName[reviewNM], Quantile = get(var.name)[reviewNM], stringsAsFactors=FALSE)
+NM.qtls[order(NM.qtls$Quantile, decreasing=TRUE),]
 
 
 
