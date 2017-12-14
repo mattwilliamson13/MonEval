@@ -13,9 +13,12 @@ library(rvest)
 library(maptools)
 library(ggplot2)
 library(RColorBrewer)
+library(rasterVis)
 library(ggsn)
 library(gridExtra)
 library(diveRsity)
+library(grid)
+library(gridExtra)
 
 
 ####################################################################################################
@@ -46,7 +49,8 @@ PA_zonal.df <- merge(PA_zonal.df, socData, by="UnitName")
 
 # load spatial data
 PA <- st_read(paste(infolder, "/PA_revised_9-21-17.shp", sep=""))  # use this version of the PA shapefile that has duplicate Unit Names corrected - maps will be incorrect otherwise
-socSpatial <- st_read(paste(infolder, "/ind_will_sf.shp", sep=""))
+econSpatial <- st_read(paste(infolder, "/econ_shp.shp", sep=""))
+LCVspatial <- st_read(paste(infolder, "/LCV_shp.shp", sep=""))
 bailey <- st_read(paste(infolder, "/baileycor.shp", sep=""))
 rich.bird <- raster(paste(infolder, "/rich.bird.tif", sep=""))
 rich.mammal <- raster(paste(infolder, "/rich.mammal.tif", sep=""))
@@ -68,10 +72,17 @@ PA$DesMode[which(PA$CurDesAuth=="Congress" & PA$OriDesAuth=="President")] <- "Pr
 PA$DesMode <- as.factor(PA$DesMode)  # convert back to factor
 
 # From SPATIAL layer, remove two NMs that were designated by inter-agency agreement
-PA <- filter(PA, CurDesAuth %in% c("Congress","President"))
+  # and six coastal PAs that are <5000 acres after cropping out non-mainland portion
+PA <- PA %>%  # get rid of PAs smaller than 5,000 acres (minimum for wilderness designation)
+  mutate(cropped_area_m2 = as.numeric(st_area(geometry))) %>%
+  mutate(cropped_area_ac = as.numeric(cropped_area_m2/4046.86)) %>%
+  filter(CurDesAuth %in% c("Congress","President")) %>%
+  filter(cropped_area_ac >= 5000)
+
 
 # From NONSPATIAL zonal stats layer, remove two NMs that were designated by inter-agency agreement
 PA_zonal.df <- filter(PA_zonal.df, CurDesAuth %in% c("Congress","President"))
+PA_zonal.df <- filter(PA_zonal.df, cropped_area_ac >= 5000)
 
 # calculate percent NA for each field in the dataset
 #sapply(PA_zonal.df, function(x) round(sum(is.na(x))/length(x)*100,1))
@@ -83,7 +94,7 @@ inreview.df <- PA_zonal.df %>%  # get values just for those NMs that were part o
 
 
 ###################################################################################################
-### FIGURE 1: MAP OF PAs BY DESIGNATION MODE
+### FIGURE 1: MAP OF PAs BY DESIGNATION MODE WITH SIZE HISTOGRAM AS INSERT
 ###################################################################################################
 
 # NOTE: can't map a multipolygon layer using geom_sf, so we'll need to go 
@@ -107,38 +118,54 @@ ggplot() +
 
 
 
-###################################################################################################
-#### FIGURE 2: PA SIZE BY DESIGNATION MODE
-###################################################################################################
 
-# These PAs are >5000 ac in size, but not when you crop out portions outside of the states layer
-PA_zonal.df$UnitName[which(PA_zonal.df$cropped_area_ac < 5000)]
-# Do we want to cut these out?
 
-# raw data
-ggplot() +
-  geom_density(data=PA_zonal.df, aes(x=area_ac, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
-  labs(x="Protected area size (acres)", y="Scaled density") +
-  #ggtitle("PA area") +
-  #geom_segment(data=inreview.df, mapping=aes(x=log(cropped_area_ac), y=0, xend=log(cropped_area_ac), yend=0.05), size=0.7, color="black") +
-  scale_color_discrete(name="Designating\nauthority") +
-  scale_fill_discrete(name="Designating\nauthority") +
+### Map portion showing PAs by designation type
+PAmap <- ggplot() +
+  geom_sf(data=states, fill="grey85", color=NA) +  # light grey background for lower 48 states
+  #geom_sf(data=fedlands.cast, fill="grey70", color=NA) +  # federal lands in darker grey
+  geom_sf(data=states, fill=NA, color="white") +  # state outlines in darkest grey
+  geom_sf(data=PA[which(PA$DesMode=="Congress"),], aes(fill="first"), color=NA, alpha=0.5) +  # protected areas on top
+  geom_sf(data=PA[which(PA$DesMode=="President then Congress"),], aes(fill="second"), color=NA, alpha=0.5) +  # protected areas on top
+  geom_sf(data=PA[which(PA$DesMode=="President"),], aes(fill="third"), color=NA, alpha=0.5) + 
+  #ggtitle("Federal protected areas of the contiguous United States") +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank()) +
+  scale_fill_manual(name="Designating\nauthority", values=c("first"="#F8766D","second"="#619CFF",
+                              "third"="#00BA38"), labels=c("Congress","President then Congress","President")) +
   theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
+  #scalebar(location="bottomright", y.min=25, y.max=26, x.min=-80, x.max=-75, dist=100)
 
-# log transformed
-ggplot() +
+
+sizedistlog <- ggplot() +
   geom_density(data=PA_zonal.df, aes(x=log(area_ac), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Log of protected area size (acres)", y="Scaled density") +
   #ggtitle("PA area") +
-  #geom_segment(data=inreview.df, mapping=aes(x=log(cropped_area_ac), y=0, xend=log(cropped_area_ac), yend=0.05), size=0.7, color="black") +
   scale_color_discrete(name="Designating\nauthority") +
   scale_fill_discrete(name="Designating\nauthority") +
+  theme(legend.position="none") +
   theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
+
+
+grid.arrange(PAmap, sizedistlog, nrow=1)
+
+
+# Put map and histogram in same plot
+grid.newpage()
+large <- viewport(width = 1, height = 1, x = 0.5, y = 0.5)  # the larger map
+small <- viewport(width = 0.2, height = 0.2, x = 0.2, y = 0.2)  # the inset in upper right
+print(PAmap, vp = large)
+print(sizedistlog, vp = small)
+  
+
+
 
 
 
 ###################################################################################################
-### FIGURE 3: ECOLOGICAL VARIABLES BY DESIGNATION MODE
+### FIGURE 2: ECOLOGICAL VARIABLES BY DESIGNATION MODE
 ###################################################################################################
 
 ecol.means.mat <- matrix(NA, nrow=3, ncol=9)  # get mean values for each variable for each designation class
@@ -265,77 +292,210 @@ multiplot(r1,r2,r3,r4,r5,r6,r7,r8,r9, cols=3)
 
 
 ###################################################################################################
-### FIGURE 4: SOCIOPOLITICAL VARIABLES BY DESIGNATION MODE
+### FIGURE 3: SOCIOPOLITICAL VARIABLES BY DESIGNATION MODE
 ###################################################################################################
 
-bufdist <- "10000"   # select buffer distance; must be character format, one of these choices: "10000","20000","50000","1e.05","250000")
-
-soc.means.mat <- matrix(NA, nrow=3, ncol=4)  # get mean values for each variable for each designation class
-desmode.list <- c("Congress","President","President then Congress")   
-var.list <- c(paste0("LCV.mean.val.",bufdist), paste0("Farm.mean.val.",bufdist), paste0("Forestry.mean.val.",bufdist), paste0("Mine.mean.val.",bufdist))
-attach(PA_zonal.df)
-for(i in 1:3){
-  for(j in 1:4){
-    soc.means.mat[i,j] <- mean(get(var.list[j])[which(DesMode==desmode.list[i])], na.rm=TRUE)
-  }
-}
-detach(PA_zonal.df)
-
+bufdist1 <- "10000"   # select buffer distance; must be character format, one of these choices: "10000","20000","50000","1e.05","250000")
 # LCV score
 s1 <- ggplot() +
-  geom_density(data=PA_zonal.df, aes(x=get(paste0("LCV.mean.val.",bufdist)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("LCV.mean.val.",bufdist1)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Mean LCV score", y="Scaled density") +
-  ggtitle("LCV score") +
-  geom_segment(aes(x=soc.means.mat[1,1], y=0, xend=soc.means.mat[1,1], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=soc.means.mat[2,1], y=0, xend=soc.means.mat[2,1], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=soc.means.mat[3,1], y=0, xend=soc.means.mat[3,1], yend=0.05), size=0.5, color="blue") +
-  #geom_segment(data=inreview.df, mapping=aes(x=get(paste0("LCV.mean.val.",bufdist)), y=0, xend=get(paste0("LCV.mean.val.",bufdist)), yend=0.05), size=1, color="black") +
+  ggtitle(paste0("LCV score, ", as.numeric(bufdist1)/1000, " km buffer")) +
   scale_color_discrete(name="Designating\nauthority") +
   scale_fill_discrete(name="Designating\nauthority") +
   guides(fill=FALSE, color=FALSE) # suppress legend
 # Farming sector
 s2 <- ggplot() +
-  geom_density(data=PA_zonal.df, aes(x=get(paste0("Farm.mean.val.",bufdist)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("Farm.mean.val.",bufdist1)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Percent workforce", y="Scaled density") +
-  ggtitle("Farming sector") +
-  geom_segment(aes(x=soc.means.mat[1,2], y=0, xend=soc.means.mat[1,2], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=soc.means.mat[2,2], y=0, xend=soc.means.mat[2,2], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=soc.means.mat[3,2], y=0, xend=soc.means.mat[3,2], yend=0.05), size=0.5, color="blue") +
-  #geom_segment(data=inreview.df, mapping=aes(x=get(paste0("Farm.mean.val.",bufdist)), y=0, xend=get(paste0("Farm.mean.val.",bufdist)), yend=0.05), size=1, color="black") +
+  ggtitle(paste0("Farming sector, ", as.numeric(bufdist1)/1000, " km buffer")) +
   scale_color_discrete(name="Designating\nauthority") +
   scale_fill_discrete(name="Designating\nauthority") +
   guides(fill=FALSE, color=FALSE) # suppress legend
 # Forestry sector
 s3 <- ggplot() +
-  geom_density(data=PA_zonal.df, aes(x=get(paste0("Forestry.mean.val.",bufdist)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("Forestry.mean.val.",bufdist1)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Percent workforce", y="Scaled density") +
-  ggtitle("Forestry sector") +
-  geom_segment(aes(x=soc.means.mat[1,3], y=0, xend=soc.means.mat[1,3], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=soc.means.mat[2,3], y=0, xend=soc.means.mat[2,3], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=soc.means.mat[3,3], y=0, xend=soc.means.mat[3,3], yend=0.05), size=0.5, color="blue") +
-  #geom_segment(data=inreview.df, mapping=aes(x=get(paste0("Forestry.mean.val.",bufdist)), y=0, xend=get(paste0("Forestry.mean.val.",bufdist)), yend=0.05), size=1, color="black") +
+  ggtitle(paste0("Forestry sector, ", as.numeric(bufdist1)/1000, " km buffer")) +
   scale_color_discrete(name="Designating\nauthority") +
   scale_fill_discrete(name="Designating\nauthority") +
   guides(fill=FALSE, color=FALSE) # suppress legend
 # Mining sector
 s4 <- ggplot() +
-  geom_density(data=PA_zonal.df, aes(x=get(paste0("Mine.mean.val.",bufdist)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("Mine.mean.val.",bufdist1)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Percent workforce", y="Scaled density") +
-  ggtitle("Mining sector") +
-  geom_segment(aes(x=soc.means.mat[1,4], y=0, xend=soc.means.mat[1,4], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=soc.means.mat[2,4], y=0, xend=soc.means.mat[2,4], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=soc.means.mat[3,4], y=0, xend=soc.means.mat[3,4], yend=0.05), size=0.5, color="blue") +
-  #geom_segment(data=inreview.df, mapping=aes(x=get(paste0("Mine.mean.val.",bufdist)), y=0, xend=get(paste0("Mine.mean.val.",bufdist)), yend=0.05), size=1, color="black") +
+  ggtitle(paste0("Mining sector, ", as.numeric(bufdist1)/1000, " km buffer")) +
   scale_color_discrete(name="Designating authority") +
   scale_fill_discrete(name="Designating authority") +
   theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
 
-multiplot(s1, s2, s3, s4, cols=2)
 
+bufdist2 <- "250000"   # select buffer distance; must be character format, one of these choices: "10000","20000","50000","1e.05","250000")
+# LCV score
+s5 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("LCV.mean.val.",bufdist2)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Mean LCV score", y="Scaled density") +
+  ggtitle(paste0("LCV score, ", as.numeric(bufdist2)/1000, " km buffer")) +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
+# Farming sector
+s6 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("Farm.mean.val.",bufdist2)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Percent workforce", y="Scaled density") +
+  ggtitle(paste0("Farming sector, ", as.numeric(bufdist2)/1000, " km buffer")) +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
+# Forestry sector
+s7 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("Forestry.mean.val.",bufdist2)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Percent workforce", y="Scaled density") +
+  ggtitle(paste0("Forestry sector, ", as.numeric(bufdist2)/1000, " km buffer")) +
+  scale_color_discrete(name="Designating\nauthority") +
+  scale_fill_discrete(name="Designating\nauthority") +
+  guides(fill=FALSE, color=FALSE) # suppress legend
+# Mining sector
+s8 <- ggplot() +
+  geom_density(data=PA_zonal.df, aes(x=get(paste0("Mine.mean.val.",bufdist2)), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
+  labs(x="Percent workforce", y="Scaled density") +
+  ggtitle(paste0("Mining sector, ", as.numeric(bufdist2)/1000, " km buffer")) +
+  scale_color_discrete(name="Designating authority") +
+  scale_fill_discrete(name="Designating authority") +
+  theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
+
+multiplot(s1, s5, s2, s6, s3, s7, s4, s8, cols=2)
+
+
+
+################################################################################################
+### Plots of variables for supplemental info
+################################################################################################
+
+PA.sp <- as(PA, "Spatial")  # convert PA to spatial layer
+
+colr <- colorRampPalette(brewer.pal(9,"YlGn")) # set color ramp for levelplots of raster layers
+
+birdplot <- levelplot(rich.bird, main="Bird species richness", margin=FALSE, # suppress marginal graphics
+                      colorkey=list(space='right'), # plot legend at bottom
+                      par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
+                      scales=list(draw=FALSE),            # suppress axis labels
+                      col.regions=colr) +                   # colour ramp
+  layer(sp.polygons(PA.sp, color="black"))
+
+mammalplot <- levelplot(rich.mammal, main="Mammal species richness", margin=FALSE, # suppress marginal graphics
+                        colorkey=list(space='right'), # plot legend at bottom
+                        par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
+                        scales=list(draw=FALSE),            # suppress axis labels
+                        col.regions=colr) +                   # colour ramp
+  layer(sp.polygons(PA.sp, color="black"))
+
+fishplot <- ggplot() +
+  geom_sf(data=rich.fish, aes(fill=Join_Count), color=NA) +
+  geom_sf(data=PA, fill=NA, color="black") +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5)) +
+  scale_fill_gradientn(colors = c("lightgreen","darkgreen")) +
+  ggtitle("Fish species richness") +
+  labs(fill="")
+
+amphibianplot <- ggplot() +
+  geom_sf(data=rich.amphib, aes(fill=Join_Count), color=NA) +
+  geom_sf(data=PA, fill=NA, color="black") +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5)) +
+  scale_fill_gradientn(colors = c("lightgreen","darkgreen")) +
+  ggtitle("Amphibian species richness") +
+  labs(fill="")
+
+reptileplot <- levelplot(rich.reptile, main="Reptile species richness", margin=FALSE, # suppress marginal graphics
+                         colorkey=list(space='right'), # plot legend at bottom
+                         par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
+                         scales=list(draw=FALSE),            # suppress axis labels
+                         col.regions=colr) +                   # colour ramp
+  layer(sp.polygons(PA.sp, color="black"))
+
+treeplot <- levelplot(rich.tree, main="Tree species richness", margin=FALSE, # suppress marginal graphics
+                      colorkey=list(space='right'), # plot legend at bottom
+                      par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
+                      scales=list(draw=FALSE),            # suppress axis labels
+                      col.regions=colr) +                   # colour ramp
+  layer(sp.polygons(PA.sp, color="black"))
+
+G1G2plot <- levelplot(rich.natserv, main="G1 & G2 species richness", margin=FALSE, # suppress marginal graphics
+                      colorkey=list(space='right'), # plot legend at bottom
+                      par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
+                      scales=list(draw=FALSE),            # suppress axis labels
+                      col.regions=colr) +                   # colour ramp
+  layer(sp.polygons(PA.sp, color="black"))
+
+climateplot <- levelplot(climate, main="Climate refugial potential", margin=FALSE, # suppress marginal graphics
+                         colorkey=list(space='right'), # plot legend at bottom
+                         par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
+                         scales=list(draw=FALSE),            # suppress axis labels
+                         col.regions=colr) +                   # colour ramp
+  layer(sp.polygons(PA.sp, color="black"))
+
+LCVplot <- ggplot() +
+  geom_sf(data=LCVspatial, aes(fill=LCVMedn), color=NA) +
+  geom_sf(data=PA, fill=NA, color="black") +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5)) +
+  scale_fill_gradientn(colors = c("khaki","goldenrod4")) +
+  ggtitle("LCV score") +
+  labs(fill="")
+
+farmplot <- ggplot() +
+  geom_sf(data=econSpatial, aes(fill=max_Frm), color=NA) +
+  geom_sf(data=PA, fill=NA, color="black") +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5)) +
+  scale_fill_gradientn(colors = c("lightblue","darkblue")) +
+  ggtitle("Farming sector") +
+  labs(fill="")
+
+forestryplot <- ggplot() +
+  geom_sf(data=econSpatial, aes(fill=mx_FrNR), color=NA) +
+  geom_sf(data=PA, fill=NA, color="black") +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5)) +
+  scale_fill_gradientn(colors = c("lightblue","darkblue")) +
+  ggtitle("Forestry sector") +
+  labs(fill="")
+
+mineplot <- ggplot() +
+  geom_sf(data=econSpatial, aes(fill=mx_Mnng), color=NA) +
+  geom_sf(data=PA, fill=NA, color="black") +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5)) +
+  scale_fill_gradientn(colors = c("lightblue","darkblue")) +
+  ggtitle("Mining sector") +
+  labs(fill="")  
+
+grid.arrange(birdplot, mammalplot, fishplot, amphibianplot, reptileplot, treeplot, G1G2plot, climateplot, nrow=4)
+grid.arrange(LCVplot, farmplot, forestryplot, mineplot, nrow=2)
 
 
 #########################################################################################
-### FIGURE A.1: PROPORTION NA AS A FUNCTION OF BUFFER SIZE
+### FIGURE SHOWING PROPORTION NA AS A FUNCTION OF BUFFER SIZE
 #########################################################################################
 
 varnames <- c("LCV", "Farm", "Forestry", "Mine")
@@ -360,6 +520,49 @@ ggplot(data=propNA.gather, aes(x=bufferDist/1000, y=propNA, color=socVar)) +
                        breaks=c("LCVscore", "farming", "forestry", "mining"),
                        labels=c("LCV score", "% farming", "% forestry", "% mining")) +
   labs(x="Buffer distance (km)", y="Proportion missing data")
+
+
+
+#########################################################################################################################
+### SUMMARY STATISTICS FOR EACH VARIABLE AND DESIGNATION CATEGORY
+#########################################################################################################################
+
+### Generate table of min, median, and max values of distributions for three designation categories plus NMs under review
+var.list <- c("cropped_area_ac","mean.rich.bird","mean.rich.mammal", "mean.rich.fish", "mean.rich.amphib","mean.rich.reptile","mean.rich.tree","mean.rich.natserv","system.richness.rare","mean.climate", "LCV.mean.val.10000","Farm.mean.val.10000","Forestry.mean.val.10000","Mine.mean.val.10000")
+min.mat <- matrix(NA, nrow=length(var.list), ncol=4)
+median.mat <- matrix(NA, nrow=length(var.list), ncol=4)
+max.mat <- matrix(NA, nrow=length(var.list), ncol=4)
+#desmode.list <- c("Congress","President","President then Congress")   
+attach(PA_zonal.df)
+for(i in 1:length(var.list)){
+  min.mat[i,1] <- min(get(var.list[i])[which(DesMode=="Congress")], na.rm=TRUE)
+  min.mat[i,2] <- min(get(var.list[i])[which(DesMode=="President then Congress")], na.rm=TRUE)
+  min.mat[i,3] <- min(get(var.list[i])[which(DesMode=="President")], na.rm=TRUE)
+  min.mat[i,4] <- min(get(var.list[i])[which(InReview=="Yes")], na.rm=TRUE)
+  median.mat[i,1] <- median(get(var.list[i])[which(DesMode=="Congress")], na.rm=TRUE)
+  median.mat[i,2] <- median(get(var.list[i])[which(DesMode=="President then Congress")], na.rm=TRUE)
+  median.mat[i,3] <- median(get(var.list[i])[which(DesMode=="President")], na.rm=TRUE)
+  median.mat[i,4] <- median(get(var.list[i])[which(InReview=="Yes")], na.rm=TRUE)
+  max.mat[i,1] <- max(get(var.list[i])[which(DesMode=="Congress")], na.rm=TRUE)
+  max.mat[i,2] <- max(get(var.list[i])[which(DesMode=="President then Congress")], na.rm=TRUE)
+  max.mat[i,3] <- max(get(var.list[i])[which(DesMode=="President")], na.rm=TRUE)
+  max.mat[i,4] <- max(get(var.list[i])[which(InReview=="Yes")], na.rm=TRUE)  
+}
+detach(PA_zonal.df)
+
+output.df <- data.frame()
+for(i in 1:nrow(min.mat)){
+  output.df <- rbind(output.df,min.mat[i,],median.mat[i,],max.mat[i,])
+}
+colnames(output.df) <- c("Congress","President then Congress","President","Monument under review")
+row.names <- c()
+for(j in 1:length(var.list)){
+  row.names <- c(row.names, paste0(c("min.","median.","max."),var.list[j]))
+}
+rownames(output.df) <- row.names
+output.df.round <- round(output.df, 2)
+write.csv(output.df.round, "C:/Users/Tyler/Google Drive/MonumentData/Generated Data/summary_stats.csv")
+
 
 
 
@@ -695,9 +898,12 @@ detach(PA_zonal.df)
 # Look at percentile values for NMs under review
 var.name <- "Forestry.mean.val.10000.qtl"
 reviewNM <- which(PA_zonal.df$InReview=="Yes")
-#NM.qtls <- data.frame(UnitName = PA_zonal.df$UnitName[reviewNM], Quantile = get(var.name)[reviewNM], stringsAsFactors=FALSE)
-#NM.qtls[order(NM.qtls$Quantile, decreasing=TRUE),]
+NM.qtls <- data.frame(UnitName = PA_zonal.df$UnitName[reviewNM], Quantile = get(var.name)[reviewNM], stringsAsFactors=FALSE)
+NM.qtls[order(NM.qtls$Quantile, decreasing=TRUE),]
 PA.qtls <- data.frame(UnitName = PA_zonal.df$UnitName, Quantile = get(var.name), stringsAsFactors=FALSE)
 head(PA.qtls[order(PA.qtls$Quantile, decreasing=TRUE),])
+
+
+
 
 
