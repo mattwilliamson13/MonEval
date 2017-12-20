@@ -183,9 +183,9 @@ r1 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(x=mean.rich.bird, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Mean richness", y="Scaled density") +
   ggtitle("Birds") +
-  geom_segment(aes(x=ecol.means.mat[1,1], y=0, xend=ecol.means.mat[1,1], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=ecol.means.mat[2,1], y=0, xend=ecol.means.mat[2,1], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=ecol.means.mat[3,1], y=0, xend=ecol.means.mat[3,1], yend=0.05), size=0.5, color="blue") +
+  #geom_segment(aes(x=ecol.means.mat[1,1], y=0, xend=ecol.means.mat[1,1], yend=0.05), size=0.5, color="red") +
+  #geom_segment(aes(x=ecol.means.mat[2,1], y=0, xend=ecol.means.mat[2,1], yend=0.05), size=0.5, color="green") +
+  #geom_segment(aes(x=ecol.means.mat[3,1], y=0, xend=ecol.means.mat[3,1], yend=0.05), size=0.5, color="blue") +
     #geom_segment(data=inreview.df, mapping=aes(x=mean.rich.bird, y=0, xend=mean.rich.bird, yend=0.05), size=0.7, color="black") +
   scale_color_discrete(name="Designating\nauthority") +
   scale_fill_discrete(name="Designating\nauthority") +
@@ -195,9 +195,9 @@ r2 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(x=mean.rich.mammal, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Mean richness", y="Scaled density") +
   ggtitle("Mammals") +
-  geom_segment(aes(x=ecol.means.mat[1,2], y=0, xend=ecol.means.mat[1,2], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=ecol.means.mat[2,2], y=0, xend=ecol.means.mat[2,2], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=ecol.means.mat[3,2], y=0, xend=ecol.means.mat[3,2], yend=0.05), size=0.5, color="blue") +
+  #geom_segment(aes(x=ecol.means.mat[1,2], y=0, xend=ecol.means.mat[1,2], yend=0.05), size=0.5, color="red") +
+  #geom_segment(aes(x=ecol.means.mat[2,2], y=0, xend=ecol.means.mat[2,2], yend=0.05), size=0.5, color="green") +
+  #geom_segment(aes(x=ecol.means.mat[3,2], y=0, xend=ecol.means.mat[3,2], yend=0.05), size=0.5, color="blue") +
   #geom_segment(data=inreview.df, mapping=aes(x=mean.rich.mammal, y=0, xend=mean.rich.mammal, yend=0.05), size=0.7, color="black") +
   scale_color_discrete(name="Designating\nauthority") +
   scale_fill_discrete(name="Designating\nauthority") +
@@ -207,9 +207,9 @@ r3 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(x=mean.rich.fish, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Mean richness", y="Scaled density") +
   ggtitle("Fish") +
-  geom_segment(aes(x=ecol.means.mat[1,3], y=0, xend=ecol.means.mat[1,3], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=ecol.means.mat[2,3], y=0, xend=ecol.means.mat[2,3], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=ecol.means.mat[3,3], y=0, xend=ecol.means.mat[3,3], yend=0.05), size=0.5, color="blue") +
+  #geom_segment(aes(x=ecol.means.mat[1,3], y=0, xend=ecol.means.mat[1,3], yend=0.05), size=0.5, color="red") +
+  #geom_segment(aes(x=ecol.means.mat[2,3], y=0, xend=ecol.means.mat[2,3], yend=0.05), size=0.5, color="green") +
+  #geom_segment(aes(x=ecol.means.mat[3,3], y=0, xend=ecol.means.mat[3,3], yend=0.05), size=0.5, color="blue") +
   #geom_segment(data=inreview.df, mapping=aes(x=mean.rich.fish, y=0, xend=mean.rich.fish, yend=0.05), size=0.7, color="black") +
   scale_color_discrete(name="Designating\nauthority") +
   scale_fill_discrete(name="Designating\nauthority") +
@@ -219,9 +219,9 @@ r4 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(x=mean.rich.amphib, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Mean richness", y="Scaled density") +
   ggtitle("Amphibians") +
-  geom_segment(aes(x=ecol.means.mat[1,4], y=0, xend=ecol.means.mat[1,4], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=ecol.means.mat[2,4], y=0, xend=ecol.means.mat[2,4], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=ecol.means.mat[3,4], y=0, xend=ecol.means.mat[3,4], yend=0.05), size=0.5, color="blue") +
+  #geom_segment(aes(x=ecol.means.mat[1,4], y=0, xend=ecol.means.mat[1,4], yend=0.05), size=0.5, color="red") +
+  #geom_segment(aes(x=ecol.means.mat[2,4], y=0, xend=ecol.means.mat[2,4], yend=0.05), size=0.5, color="green") +
+  #geom_segment(aes(x=ecol.means.mat[3,4], y=0, xend=ecol.means.mat[3,4], yend=0.05), size=0.5, color="blue") +
   #geom_segment(data=inreview.df, mapping=aes(x=mean.rich.amphib, y=0, xend=mean.rich.amphib, yend=0.05), size=0.7, color="black") +
   scale_color_discrete(name="Designating\nauthority") +
   scale_fill_discrete(name="Designating\nauthority") +
@@ -231,9 +231,9 @@ r5 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(x=mean.rich.reptile, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Mean richness", y="Scaled density") +
   ggtitle("Reptiles") +
-  geom_segment(aes(x=ecol.means.mat[1,5], y=0, xend=ecol.means.mat[1,5], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=ecol.means.mat[2,5], y=0, xend=ecol.means.mat[2,5], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=ecol.means.mat[3,5], y=0, xend=ecol.means.mat[3,5], yend=0.05), size=0.5, color="blue") +
+  #geom_segment(aes(x=ecol.means.mat[1,5], y=0, xend=ecol.means.mat[1,5], yend=0.05), size=0.5, color="red") +
+  #geom_segment(aes(x=ecol.means.mat[2,5], y=0, xend=ecol.means.mat[2,5], yend=0.05), size=0.5, color="green") +
+  #geom_segment(aes(x=ecol.means.mat[3,5], y=0, xend=ecol.means.mat[3,5], yend=0.05), size=0.5, color="blue") +
   #geom_segment(data=inreview.df, mapping=aes(x=mean.rich.reptile, y=0, xend=mean.rich.reptile, yend=0.05), size=0.7, color="black") +
   scale_color_discrete(name="Designating\nauthority") +
   scale_fill_discrete(name="Designating\nauthority") +
@@ -243,9 +243,9 @@ r6 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(mean.rich.tree, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Mean richness", y="Scaled density") +
   ggtitle("Trees") +
-  geom_segment(aes(x=ecol.means.mat[1,6], y=0, xend=ecol.means.mat[1,6], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=ecol.means.mat[2,6], y=0, xend=ecol.means.mat[2,6], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=ecol.means.mat[3,6], y=0, xend=ecol.means.mat[3,6], yend=0.05), size=0.5, color="blue") +
+  #geom_segment(aes(x=ecol.means.mat[1,6], y=0, xend=ecol.means.mat[1,6], yend=0.05), size=0.5, color="red") +
+  #geom_segment(aes(x=ecol.means.mat[2,6], y=0, xend=ecol.means.mat[2,6], yend=0.05), size=0.5, color="green") +
+  #geom_segment(aes(x=ecol.means.mat[3,6], y=0, xend=ecol.means.mat[3,6], yend=0.05), size=0.5, color="blue") +
   #geom_segment(data=inreview.df, mapping=aes(x=mean.rich.tree, y=0, xend=mean.rich.tree, yend=0.05), size=0.7, color="black") +
   scale_color_discrete(name="Designating authority") +
   scale_fill_discrete(name="Designating authority") +
@@ -255,9 +255,9 @@ r7 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(mean.rich.natserv, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Mean rarity-weighted species richness", y="Scaled density") +
   ggtitle("Imperiled and Critically Imperiled species richness") +
-  geom_segment(aes(x=ecol.means.mat[1,7], y=0, xend=ecol.means.mat[1,7], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=ecol.means.mat[2,7], y=0, xend=ecol.means.mat[2,7], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=ecol.means.mat[3,7], y=0, xend=ecol.means.mat[3,7], yend=0.05), size=0.5, color="blue") +
+  #geom_segment(aes(x=ecol.means.mat[1,7], y=0, xend=ecol.means.mat[1,7], yend=0.05), size=0.5, color="red") +
+  #geom_segment(aes(x=ecol.means.mat[2,7], y=0, xend=ecol.means.mat[2,7], yend=0.05), size=0.5, color="green") +
+  #geom_segment(aes(x=ecol.means.mat[3,7], y=0, xend=ecol.means.mat[3,7], yend=0.05), size=0.5, color="blue") +
   #geom_segment(data=inreview.df, mapping=aes(x=mean.rich.natserv, y=0, xend=mean.rich.natserv, yend=0.05), size=0.7, color="black") +
   scale_color_discrete(name="Designating authority") +
   scale_fill_discrete(name="Designating authority") +
@@ -267,9 +267,9 @@ r8 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(system.richness.rare, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Rarefied richness", y="Scaled density") +
   ggtitle("Ecological system richness") +
-  geom_segment(aes(x=ecol.means.mat[1,8], y=0, xend=ecol.means.mat[1,8], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=ecol.means.mat[2,8], y=0, xend=ecol.means.mat[2,8], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=ecol.means.mat[3,8], y=0, xend=ecol.means.mat[3,8], yend=0.05), size=0.5, color="blue") +
+  #geom_segment(aes(x=ecol.means.mat[1,8], y=0, xend=ecol.means.mat[1,8], yend=0.05), size=0.5, color="red") +
+  #geom_segment(aes(x=ecol.means.mat[2,8], y=0, xend=ecol.means.mat[2,8], yend=0.05), size=0.5, color="green") +
+  #geom_segment(aes(x=ecol.means.mat[3,8], y=0, xend=ecol.means.mat[3,8], yend=0.05), size=0.5, color="blue") +
   #geom_segment(data=inreview.df, mapping=aes(x=system.richness.rare, y=0, xend=system.richness.rare, yend=0.05), size=0.7, color="black") +
   scale_color_discrete(name="Designating authority") +
   scale_fill_discrete(name="Designating authority") +
@@ -279,9 +279,9 @@ r9 <- ggplot() +
   geom_density(data=PA_zonal.df, aes(mean.climate, y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
   labs(x="Mean refugial potential", y="Scaled density") +
   ggtitle("Climate refugial potential") +
-  geom_segment(aes(x=ecol.means.mat[1,9], y=0, xend=ecol.means.mat[1,9], yend=0.05), size=0.5, color="red") +
-  geom_segment(aes(x=ecol.means.mat[2,9], y=0, xend=ecol.means.mat[2,9], yend=0.05), size=0.5, color="green") +
-  geom_segment(aes(x=ecol.means.mat[3,9], y=0, xend=ecol.means.mat[3,9], yend=0.05), size=0.5, color="blue") +
+  #geom_segment(aes(x=ecol.means.mat[1,9], y=0, xend=ecol.means.mat[1,9], yend=0.05), size=0.5, color="red") +
+  #geom_segment(aes(x=ecol.means.mat[2,9], y=0, xend=ecol.means.mat[2,9], yend=0.05), size=0.5, color="green") +
+  #geom_segment(aes(x=ecol.means.mat[3,9], y=0, xend=ecol.means.mat[3,9], yend=0.05), size=0.5, color="blue") +
   #geom_segment(data=inreview.df, mapping=aes(x=mean.climate, y=0, xend=mean.climate, yend=0.05), size=0.7, color="black") +
   scale_color_discrete(name="Designating authority") +
   scale_fill_discrete(name="Designating authority") +
@@ -374,37 +374,36 @@ multiplot(s1, s5, s2, s6, s3, s7, s4, s8, cols=2)
 
 PA.sp <- as(PA, "Spatial")  # convert PA to spatial layer
 
-colr <- colorRampPalette(brewer.pal(9,"YlGn")) # set color ramp for levelplots of raster layers
+colr <- colorRampPalette(brewer.pal(9,"OrRd")) # set color ramp for levelplots of raster layers
 
 birdplot <- levelplot(rich.bird, main="Bird species richness", margin=FALSE, # suppress marginal graphics
                       colorkey=list(space='right'), # plot legend at bottom
                       par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
                       scales=list(draw=FALSE),            # suppress axis labels
-                      col.regions=colr) +                   # colour ramp
-  layer(sp.polygons(PA.sp, color="black"))
+                      col.regions=colorRampPalette(brewer.pal(9,"YlOrRd")))  # +                   # colour ramp
+  #layer(sp.polygons(PA.sp, color="black"))  # this adds PA boundaries on top - probably too cluttered
 
 mammalplot <- levelplot(rich.mammal, main="Mammal species richness", margin=FALSE, # suppress marginal graphics
                         colorkey=list(space='right'), # plot legend at bottom
                         par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
                         scales=list(draw=FALSE),            # suppress axis labels
-                        col.regions=colr) +                   # colour ramp
-  layer(sp.polygons(PA.sp, color="black"))
+                        col.regions=colorRampPalette(brewer.pal(9,"YlGnBu"))) 
 
 fishplot <- ggplot() +
   geom_sf(data=rich.fish, aes(fill=Join_Count), color=NA) +
-  geom_sf(data=PA, fill=NA, color="black") +
+  #geom_sf(data=PA, fill=NA, color="black") +
   theme(axis.text.x = element_blank(),
         axis.text.y = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
         plot.title=element_text(hjust=0.5)) +
-  scale_fill_gradientn(colors = c("lightgreen","darkgreen")) +
+  scale_fill_gradientn(colors = c("lightblue1","lightblue4")) +
   ggtitle("Fish species richness") +
   labs(fill="")
 
 amphibianplot <- ggplot() +
   geom_sf(data=rich.amphib, aes(fill=Join_Count), color=NA) +
-  geom_sf(data=PA, fill=NA, color="black") +
+  #geom_sf(data=PA, fill=NA, color="black") +
   theme(axis.text.x = element_blank(),
         axis.text.y = element_blank(),
         axis.ticks = element_blank(),
@@ -418,79 +417,75 @@ reptileplot <- levelplot(rich.reptile, main="Reptile species richness", margin=F
                          colorkey=list(space='right'), # plot legend at bottom
                          par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
                          scales=list(draw=FALSE),            # suppress axis labels
-                         col.regions=colr) +                   # colour ramp
-  layer(sp.polygons(PA.sp, color="black"))
+                         col.regions=colorRampPalette(brewer.pal(9,"BuPu"))) 
 
 treeplot <- levelplot(rich.tree, main="Tree species richness", margin=FALSE, # suppress marginal graphics
                       colorkey=list(space='right'), # plot legend at bottom
                       par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
                       scales=list(draw=FALSE),            # suppress axis labels
-                      col.regions=colr) +                   # colour ramp
-  layer(sp.polygons(PA.sp, color="black"))
+                      col.regions=colorRampPalette(brewer.pal(9,"Spectral"))) 
 
 G1G2plot <- levelplot(rich.natserv, main="G1 & G2 species richness", margin=FALSE, # suppress marginal graphics
                       colorkey=list(space='right'), # plot legend at bottom
                       par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
                       scales=list(draw=FALSE),            # suppress axis labels
-                      col.regions=colr) +                   # colour ramp
-  layer(sp.polygons(PA.sp, color="black"))
+                      col.regions=colorRampPalette(brewer.pal(9,"OrRd"))) 
 
 climateplot <- levelplot(climate, main="Climate refugial potential", margin=FALSE, # suppress marginal graphics
                          colorkey=list(space='right'), # plot legend at bottom
                          par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
                          scales=list(draw=FALSE),            # suppress axis labels
-                         col.regions=colr) +                   # colour ramp
-  layer(sp.polygons(PA.sp, color="black"))
+                         col.regions=colorRampPalette(brewer.pal(9,"Blues"))) 
 
 LCVplot <- ggplot() +
   geom_sf(data=LCVspatial, aes(fill=LCVMedn), color=NA) +
-  geom_sf(data=PA, fill=NA, color="black") +
+  #geom_sf(data=PA, fill=NA, color="black") +
   theme(axis.text.x = element_blank(),
         axis.text.y = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
         plot.title=element_text(hjust=0.5)) +
-  scale_fill_gradientn(colors = c("khaki","goldenrod4")) +
+  scale_fill_gradientn(colors = c("khaki1","khaki4")) +
   ggtitle("LCV score") +
   labs(fill="")
 
 farmplot <- ggplot() +
   geom_sf(data=econSpatial, aes(fill=max_Frm), color=NA) +
-  geom_sf(data=PA, fill=NA, color="black") +
+  #geom_sf(data=PA, fill=NA, color="black") +
   theme(axis.text.x = element_blank(),
         axis.text.y = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
         plot.title=element_text(hjust=0.5)) +
-  scale_fill_gradientn(colors = c("lightblue","darkblue")) +
+  scale_fill_gradientn(colors = c("green1","green4")) +
   ggtitle("Farming sector") +
   labs(fill="")
 
 forestryplot <- ggplot() +
   geom_sf(data=econSpatial, aes(fill=mx_FrNR), color=NA) +
-  geom_sf(data=PA, fill=NA, color="black") +
+  #geom_sf(data=PA, fill=NA, color="black") +
   theme(axis.text.x = element_blank(),
         axis.text.y = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
         plot.title=element_text(hjust=0.5)) +
-  scale_fill_gradientn(colors = c("lightblue","darkblue")) +
+  scale_fill_gradientn(colors = c("darkolivegreen1","darkolivegreen4")) +
   ggtitle("Forestry sector") +
   labs(fill="")
 
 mineplot <- ggplot() +
   geom_sf(data=econSpatial, aes(fill=mx_Mnng), color=NA) +
-  geom_sf(data=PA, fill=NA, color="black") +
+  #geom_sf(data=PA, fill=NA, color="black") +
   theme(axis.text.x = element_blank(),
         axis.text.y = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
         plot.title=element_text(hjust=0.5)) +
-  scale_fill_gradientn(colors = c("lightblue","darkblue")) +
+  scale_fill_gradientn(colors = c("yellow1","yellow4")) +
   ggtitle("Mining sector") +
   labs(fill="")  
 
-grid.arrange(birdplot, mammalplot, fishplot, amphibianplot, reptileplot, treeplot, G1G2plot, climateplot, nrow=4)
+grid.arrange(birdplot, mammalplot, fishplot, amphibianplot, reptileplot, treeplot, G1G2plot, climateplot, nrow=2)
 grid.arrange(LCVplot, farmplot, forestryplot, mineplot, nrow=2)
 
 
@@ -521,6 +516,16 @@ ggplot(data=propNA.gather, aes(x=bufferDist/1000, y=propNA, color=socVar)) +
                        labels=c("LCV score", "% farming", "% forestry", "% mining")) +
   labs(x="Buffer distance (km)", y="Proportion missing data")
 
+
+
+### Get proportion NA for ecological variables (no buffer, so a single value per variable)
+ecovarnames <- c("mean.rich.bird","mean.rich.mammal", "mean.rich.fish", "mean.rich.amphib","mean.rich.reptile","mean.rich.tree","mean.rich.natserv","system.richness.rare","mean.climate")
+attach(PA_zonal.df)
+propNA.ecol <- rep(NA, length(ecovarnames))
+for(i in 1:length(ecovarnames)){
+  propNA.ecol[i] <- sum(is.na(get(ecovarnames[i])))/nrow(PA_zonal.df)
+}
+propNA.ecol.df <- data.frame(cbind(ecovarnames, round(propNA.ecol,2)), stringsAsFactors = FALSE)
 
 
 #########################################################################################################################
