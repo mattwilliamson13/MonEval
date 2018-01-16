@@ -14,7 +14,6 @@ library(maptools)
 library(ggplot2)
 library(RColorBrewer)
 library(rasterVis)
-library(ggsn)
 library(gridExtra)
 library(diveRsity)
 library(grid)
@@ -60,8 +59,8 @@ rich.natserv <- raster(paste(infolder, "/natserv.tif", sep=""))
 rich.fish <- st_read(paste(infolder, "/rich.fish.shp", sep=""))
 rich.amphib <- st_read(paste(infolder, "/rich.amphib.shp", sep=""))
 natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))
-climate <- raster(paste(infolder, "/climate.tif", sep=""))
-#fedlands <- st_read(paste(infolder, "/fedlandscrop.shp", sep=""))
+climate <- raster(paste(infolder, "/climate_clipped.tif", sep=""))
+fedlands <- st_read(paste(infolder, "/fedlandscrop.shp", sep=""))
 states <- st_read(paste(infolder, "/states2.shp", sep=""))
 
 # Create a new Designation Mode variable to distinguish PAs that started as presidential NMs but are now congressional designations (call this variable DesMode)
@@ -97,65 +96,57 @@ inreview.df <- PA_zonal.df %>%  # get values just for those NMs that were part o
 ### FIGURE 1: MAP OF PAs BY DESIGNATION MODE WITH SIZE HISTOGRAM AS INSERT
 ###################################################################################################
 
-# NOTE: can't map a multipolygon layer using geom_sf, so we'll need to go 
-# back and generate a non-unioned fedlands layer if we want to include in the plot
-# the fix for this is fedlands.cast <- st_cast(fedlands, "POLYGON")
-
-#fedlands.cast <- st_cast(fedlands, "POLYGON")  # can't map multipolygon layers using geom_sf, so convert fedlands back to polygons layer
-# NOTE: following plot takes a very long time to generate figure in R -
-# either run on cluster or comment out fedlands line when tweaking figure
-ggplot() +
-  geom_sf(data=states, fill="grey85", color=NA) +  # light grey background for lower 48 states
-  #geom_sf(data=fedlands.cast, fill="grey70", color=NA) +  # federal lands in darker grey
-  geom_sf(data=states, fill=NA, color="white") +  # state outlines in darkest grey
-  geom_sf(data=PA, aes(fill=DesMode), color=NA, alpha=0.5) +  # protected areas on top
-  #ggtitle("Federal protected areas of the contiguous United States") +
-  theme_bw() +
-  theme(legend.justification=c(0.01,0.01), legend.position=c(0.01,0.01)) +  # put legend in top right corner
-  #theme_map() +     # this option removes lat/lon lines
-  scale_fill_discrete(name="Designating\nauthority") +
-  scalebar(location="bottomright", y.min=25, y.max=26, x.min=-80, x.max=-75, dist=100)
-
-
-
-
 
 ### Map portion showing PAs by designation type
+
+require(legendMap)  # load package for scale bar and N arrow
+fedlands.cast <- st_cast(fedlands, "POLYGON")  # can't map multipolygon layers using geom_sf, so convert fedlands back to polygons layer
+states.wgs84 <- st_transform(states, "+init=epsg:4326")  # transform CRS to WGS84 (necessary to use legendMap for scale bar)
+PA.wgs84 <- st_transform(PA, "+init=epsg:4326")
+fedlands.cast.wgs84 <- st_transform(fedlands.cast, "+init=epsg:4326")
+
 PAmap <- ggplot() +
-  geom_sf(data=states, fill="grey85", color=NA) +  # light grey background for lower 48 states
-  #geom_sf(data=fedlands.cast, fill="grey70", color=NA) +  # federal lands in darker grey
-  geom_sf(data=states, fill=NA, color="white") +  # state outlines in darkest grey
-  geom_sf(data=PA[which(PA$DesMode=="Congress"),], aes(fill="first"), color=NA, alpha=0.5) +  # protected areas on top
-  geom_sf(data=PA[which(PA$DesMode=="President then Congress"),], aes(fill="second"), color=NA, alpha=0.5) +  # protected areas on top
-  geom_sf(data=PA[which(PA$DesMode=="President"),], aes(fill="third"), color=NA, alpha=0.5) + 
-  #ggtitle("Federal protected areas of the contiguous United States") +
+  geom_sf(data=states.wgs84, fill="grey85", color=NA) +  # light grey background for lower 48 states
+  geom_sf(data=fedlands.cast.wgs84, fill="grey70", color=NA) +  # federal lands in darker grey
+  geom_sf(data=states.wgs84, fill=NA, color="white") +  # state outlines in darkest grey
+  geom_sf(data=PA.wgs84[which(PA.wgs84$DesMode=="Congress"),], aes(fill="first"), color=NA, alpha=0.5) +  # protected areas on top
+  geom_sf(data=PA.wgs84[which(PA.wgs84$DesMode=="President then Congress"),], aes(fill="second"), color=NA, alpha=0.5) +  # protected areas on top
+  geom_sf(data=PA.wgs84[which(PA.wgs84$DesMode=="President"),], aes(fill="third"), color=NA, alpha=0.5) + 
   theme(axis.text.x = element_blank(),
         axis.text.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
         axis.ticks = element_blank(),
-        rect = element_blank()) +
+        rect = element_blank(),
+        panel.grid.major = element_line(colour = "white")) +
   scale_fill_manual(name="Designation\nmode", values=c("first"="#F8766D","second"="#619CFF",
                               "third"="#00BA38"), labels=c("CPA","RPA","PPA")) +
-  theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
-  #scalebar(location="bottomright", y.min=25, y.max=26, x.min=-80, x.max=-75, dist=100)
+  theme(legend.justification=c(1,0), legend.position="bottom") +   # put legend in top right corner
+  scale_bar(lon=-75, lat=22, distance_lon=500, distance_lat=50, 
+            distance_legend=150, dist_unit="km", rec_fill="white", 
+            rec_colour="black", rec2_fill="black", rec2_colour="black", 
+            legend_colour="black", legend_size=3, orientation=TRUE, 
+            arrow_length=500, arrow_distance=300, arrow_north_size=4)
 
-
+# Density plot of PA size distribution
 sizedistlog <- ggplot() +
   geom_density(data=PA_zonal.df, aes(x=log(area_ac), y=..scaled.., fill=DesMode, color=DesMode), alpha=0.35, size=1) + 
-  labs(x="Log of protected area size (acres)", y="Scaled density") +
-  #ggtitle("PA area") +
-  scale_color_discrete(name="Designating\nauthority") +
-  scale_fill_discrete(name="Designating\nauthority") +
-  theme(legend.position="none") +
-  theme(legend.justification=c(1,1), legend.position=c(1,1))  # put legend in top right corner
+  labs(x="Log PA size (acres)", y="Scaled density") +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0)) +
+  theme(legend.position="none",
+        rect = element_blank(),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        panel.background = element_blank(),
+        axis.line.x = element_line(),
+        axis.line.y = element_line())
+  
 
-
-grid.arrange(PAmap, sizedistlog, nrow=1)
-
-
-# Put map and histogram in same plot
+# Put map and density plot in same window
 grid.newpage()
 large <- viewport(width = 1, height = 1, x = 0.5, y = 0.5)  # the larger map
-small <- viewport(width = 0.2, height = 0.2, x = 0.2, y = 0.2)  # the inset in upper right
+small <- viewport(width = 0.4, height = 0.4, x = 0.22, y = 0.21)  # the inset in upper right
 print(PAmap, vp = large)
 print(sizedistlog, vp = small)
   
@@ -341,79 +332,133 @@ multiplot(s1, s2, s3, s4, cols=2)
 ### Plots of variables for supplemental info
 ################################################################################################
 
-PA.sp <- as(PA, "Spatial")  # convert PA to spatial layer
+# convert raster layers to dataframes to allow plotting in ggplot
+rich.bird.df <- as.data.frame(as(rich.bird, "SpatialPixelsDataFrame"))
+colnames(rich.bird.df) <- c("value", "x", "y")
+rich.mammal.df <- as.data.frame(as(rich.mammal, "SpatialPixelsDataFrame"))
+colnames(rich.mammal.df) <- c("value", "x", "y")
+rich.reptile.df <- as.data.frame(as(rich.reptile, "SpatialPixelsDataFrame"))
+colnames(rich.reptile.df) <- c("value", "x", "y")
+rich.tree.df <- as.data.frame(as(rich.tree, "SpatialPixelsDataFrame"))
+colnames(rich.tree.df) <- c("value", "x", "y")
+rich.natserv.df <- as.data.frame(as(rich.natserv, "SpatialPixelsDataFrame"))
+colnames(rich.natserv.df) <- c("value", "x", "y")
+climate.df <- as.data.frame(as(climate, "SpatialPixelsDataFrame"))
+colnames(climate.df) <- c("value", "x", "y")
 
-birdplot <- levelplot(rich.bird, main="Bird species richness", margin=FALSE, # suppress marginal graphics
-                      colorkey=list(space='right'), # plot legend at bottom
-                      par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
-                      scales=list(draw=FALSE),            # suppress axis labels
-                      col.regions=colorRampPalette(brewer.pal(9,"YlOrRd")))  # +                   # colour ramp
-  #layer(sp.polygons(PA.sp, color="black"))  # this adds PA boundaries on top - probably too cluttered
+# create individual plots
+birdplot <- ggplot() +
+  geom_tile(data=rich.bird.df, aes(x=x, y=y, fill=value)) +
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_blank()) +
+  scale_fill_gradientn(colors = c("white","red")) +
+  ggtitle("Bird richness") +
+  theme(plot.title = element_text(size = 20)) +
+  labs(fill="")
 
-mammalplot <- levelplot(rich.mammal, main="Mammal species richness", margin=FALSE, # suppress marginal graphics
-                        colorkey=list(space='right'), # plot legend at bottom
-                        par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
-                        scales=list(draw=FALSE),            # suppress axis labels
-                        col.regions=colorRampPalette(brewer.pal(9,"YlGnBu"))) 
+mammalplot <- ggplot() +
+  geom_tile(data=rich.mammal.df, aes(x=x, y=y, fill=value)) +
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_blank()) +
+  scale_fill_gradientn(colors = c("burlywood1","burlywood4")) +
+  ggtitle("Mammal richness") +
+  theme(plot.title = element_text(size = 20)) +
+  labs(fill="")
 
 fishplot <- ggplot() +
   geom_sf(data=rich.fish, aes(fill=Join_Count), color=NA) +
-  #geom_sf(data=PA, fill=NA, color="black") +
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
-        plot.title=element_text(hjust=0.5)) +
-  scale_fill_gradientn(colors = c("yellow","red")) +
-  ggtitle("Fish species richness") +
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_line(color="white")) +
+  scale_fill_gradientn(colors = c("steelblue1","steelblue4")) +
+  ggtitle("Fish richness") +
   theme(plot.title = element_text(size = 20)) +
   labs(fill="")
 
 amphibianplot <- ggplot() +
   geom_sf(data=rich.amphib, aes(fill=Join_Count), color=NA) +
-  #geom_sf(data=PA, fill=NA, color="black") +
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
-        plot.title=element_text(hjust=0.5)) +
-  scale_fill_gradientn(colors = c("lightgreen","darkgreen")) +
-  ggtitle("Amphibian species richness") +
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_line(color="white")) +
+  scale_fill_gradientn(colors = c("yellow1","yellow4")) +
+  ggtitle("Amphibian richness") +
   theme(plot.title = element_text(size = 20)) +
   labs(fill="")
 
-reptileplot <- levelplot(rich.reptile, main="Reptile species richness", margin=FALSE, # suppress marginal graphics
-                         colorkey=list(space='right'), # plot legend at bottom
-                         par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
-                         scales=list(draw=FALSE),            # suppress axis labels
-                         col.regions=colorRampPalette(brewer.pal(9,"BrBG"))) 
+reptileplot <- ggplot() +
+  geom_tile(data=rich.reptile.df, aes(x=x, y=y, fill=value)) +
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_blank()) +
+  scale_fill_gradientn(colors = c("thistle1","thistle4")) +
+  ggtitle("Reptile richness") +
+  theme(plot.title = element_text(size = 20)) +
+  labs(fill="")
 
-treeplot <- levelplot(rich.tree, main="Tree species richness", margin=FALSE, # suppress marginal graphics
-                      colorkey=list(space='right'), # plot legend at bottom
-                      par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
-                      scales=list(draw=FALSE),            # suppress axis labels
-                      col.regions=colorRampPalette(brewer.pal(9,"Spectral"))) 
+treeplot <- ggplot() +
+  geom_tile(data=rich.tree.df, aes(x=x, y=y, fill=value)) +
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_blank()) +
+  scale_fill_gradientn(colors = c("darkolivegreen1","darkolivegreen4")) +
+  ggtitle("Tree richness") +
+  theme(plot.title = element_text(size = 20)) +
+  labs(fill="")
 
-G1G2plot <- levelplot(rich.natserv, main="G1 & G2 species richness", margin=FALSE, # suppress marginal graphics
-                      colorkey=list(space='right'), # plot legend at bottom
-                      par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
-                      scales=list(draw=FALSE),            # suppress axis labels
-                      col.regions=colorRampPalette(brewer.pal(9,"BuPu"))) 
+G1G2plot <- ggplot() +
+  geom_tile(data=rich.natserv.df, aes(x=x, y=y, fill=value)) +
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_blank()) +
+  scale_fill_gradientn(colors = c("darkorange1","darkorange4")) +
+  ggtitle("G1/G2 species richness") +
+  theme(plot.title = element_text(size = 20)) +
+  labs(fill="")
 
-climateplot <- levelplot(climate, main="Climate refugial potential", margin=FALSE, # suppress marginal graphics
-                         colorkey=list(space='right'), # plot legend at bottom
-                         par.settings=list(axis.line=list(col='transparent')), # suppress axes and legend outline
-                         scales=list(draw=FALSE),            # suppress axis labels
-                         col.regions=colorRampPalette(brewer.pal(9,"RdBu"))) 
+climateplot <- ggplot() +
+  geom_tile(data=climate.df, aes(x=x, y=y, fill=value)) +
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        rect = element_blank(),
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_blank()) +
+  scale_fill_gradientn(colors = c("turquoise1","turquoise4")) +
+  ggtitle("Climate refugial potential") +
+  theme(plot.title = element_text(size = 20)) +
+  labs(fill="")  
 
 LCVplot <- ggplot() +
   geom_sf(data=LCVspatial, aes(fill=LCVMedn), color=NA) +
-  #geom_sf(data=PA, fill=NA, color="black") +
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
-        plot.title=element_text(hjust=0.5)) +
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_blank()) +
   scale_fill_gradientn(colors = c("red","blue")) +
   ggtitle("LCV score") +
   theme(plot.title = element_text(size = 12)) +
@@ -421,13 +466,12 @@ LCVplot <- ggplot() +
 
 farmplot <- ggplot() +
   geom_sf(data=econSpatial, aes(fill=max_Frm), color=NA) +
-  #geom_sf(data=PA, fill=NA, color="black") +
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
-        plot.title=element_text(hjust=0.5)) +
-  #scale_fill_gradientn(colors = c("green1","green4")) +
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_blank()) +
   scale_fill_gradientn(colors = c("darkgoldenrod","green")) +
   ggtitle("% on-farm agriculture") +
   theme(plot.title = element_text(size = 12)) +
@@ -435,12 +479,12 @@ farmplot <- ggplot() +
 
 forestryplot <- ggplot() +
   geom_sf(data=econSpatial, aes(fill=mx_FrNR), color=NA) +
-  #geom_sf(data=PA, fill=NA, color="black") +
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
-        plot.title=element_text(hjust=0.5)) +
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_blank()) +
   scale_fill_gradientn(colors = c("yellow","red")) +
   ggtitle("% off-farm agriculture") +
   theme(plot.title = element_text(size = 12)) +
@@ -448,12 +492,12 @@ forestryplot <- ggplot() +
 
 mineplot <- ggplot() +
   geom_sf(data=econSpatial, aes(fill=mx_Mnng), color=NA) +
-  #geom_sf(data=PA, fill=NA, color="black") +
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
+  theme(axis.text= element_blank(),
+        axis.title = element_blank(),
         axis.ticks = element_blank(),
         rect = element_blank(),
-        plot.title=element_text(hjust=0.5)) +
+        plot.title=element_text(hjust=0.5),
+        panel.grid.major = element_blank()) +
   scale_fill_gradientn(colors = c("lightblue","darkblue")) +
   ggtitle("% mineral extraction") +
   theme(plot.title = element_text(size = 12)) +
