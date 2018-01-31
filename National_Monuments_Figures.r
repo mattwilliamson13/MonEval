@@ -18,6 +18,7 @@ library(gridExtra)
 library(diveRsity)
 library(grid)
 library(gridExtra)
+library(legendMap)
 
 
 ####################################################################################################
@@ -98,16 +99,16 @@ inreview.df <- PA_zonal.df %>%  # get values just for those NMs that were part o
 
 
 ### Map portion showing PAs by designation type
-
-require(legendMap)  # load package for scale bar and N arrow
-fedlands.cast <- st_cast(fedlands, "POLYGON")  # can't map multipolygon layers using geom_sf, so convert fedlands back to polygons layer
+fedlands.raster <- fasterize(sf=fedlands, raster=climate, field=NULL, fun="last")  # rasterize fedlands layer to allow efficient plotting
 states.wgs84 <- st_transform(states, "+init=epsg:4326")  # transform CRS to WGS84 (necessary to use legendMap for scale bar)
 PA.wgs84 <- st_transform(PA, "+init=epsg:4326")
-fedlands.cast.wgs84 <- st_transform(fedlands.cast, "+init=epsg:4326")
+fedlands.raster.wgs84 <- projectRaster(fedlands.raster, crs="+init=epsg:4326", method="ngb")
+fedlands.df <- as.data.frame(as(fedlands.raster.wgs84, "SpatialPixelsDataFrame"))  # convert to dataframe to allow plotting using geom_tile
+colnames(fedlands.df) <- c("value", "x", "y")
 
 PAmap <- ggplot() +
   geom_sf(data=states.wgs84, fill="grey85", color=NA) +  # light grey background for lower 48 states
-  geom_sf(data=fedlands.cast.wgs84, fill="grey70", color=NA) +  # federal lands in darker grey
+  geom_tile(data=fedlands.df, aes(x=x, y=y, fill="zero")) +  # federal lands in darker grey
   geom_sf(data=states.wgs84, fill=NA, color="white") +  # state outlines in darkest grey
   geom_sf(data=PA.wgs84[which(PA.wgs84$DesMode=="Congress"),], aes(fill="first"), color=NA, alpha=0.5) +  # protected areas on top
   geom_sf(data=PA.wgs84[which(PA.wgs84$DesMode=="President then Congress"),], aes(fill="second"), color=NA, alpha=0.5) +  # protected areas on top
@@ -120,7 +121,7 @@ PAmap <- ggplot() +
         rect = element_blank(),
         panel.grid.major = element_line(colour = "white")) +
   scale_fill_manual(name="Designation\nmode", values=c("first"="#F8766D","second"="#619CFF",
-                              "third"="#00BA38"), labels=c("CPA","RPA","PPA")) +
+                                                       "third"="#00BA38", "zero"="#B3B3B3"), labels=c("CPA","RPA","PPA","federal land")) +
   theme(legend.justification=c(1,0), legend.position="bottom") +   # put legend in top right corner
   scale_bar(lon=-75, lat=22, distance_lon=500, distance_lat=50, 
             distance_legend=150, dist_unit="km", rec_fill="white", 
