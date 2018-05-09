@@ -15,13 +15,18 @@ library(ggplot2)
 
 infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # location on Tyler's Google Drive
 #infolder <- "D:/Data/MonumentData/Generated Data"  # location on Schwartz server (NEED TO ADD NEW PA LAYER AND NATURESERV RICHNESS RASTER)
-
 #rasterOptions(tmpdir = "D:/RastTemp/", progress="text", overwrite=TRUE)  # turn on progress bar for raster operations
 
 
-### READ IN PREPPED SPATIAL DATA
 
-bailey <- st_read(paste(infolder, "/baileycor.shp", sep=""), stringsAsFactors=FALSE)
+###################################################################################################################################################
+# specify which geographic subset you want to work with:
+subset <- "lower48"   # options are "lower48", "east", or "west"
+###################################################################################################################################################
+
+
+
+### READ IN PREPPED SPATIAL DATA
 rich.bird <- raster(paste(infolder, "/rich.bird.tif", sep=""))
 rich.mammal <- raster(paste(infolder, "/rich.mammal.tif", sep=""))
 rich.tree <- raster(paste(infolder, "/rich.tree.tif", sep=""))
@@ -31,22 +36,18 @@ rich.amphib <- st_read(paste(infolder, "/rich.amphib.shp", sep=""), stringsAsFac
 rich.natserv <- raster(paste(infolder, "/natserv.tif", sep=""))  # rarity weighted richness from NatureServ
 natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))
 climate <- raster(paste(infolder, "/climate.tif", sep=""))
-PA <- st_read(paste(infolder, "/post-2000_federal_PAs_4-14-18.shp", sep=""), stringsAsFactors=FALSE)
-PA <- PA %>%  # calculate areas again after cropping to lower 48
-  mutate(cropped_area_m2 = as.numeric(st_area(geometry))) %>%
-  mutate(cropped_area_ac = as.numeric(cropped_area_m2/4046.86)) %>%
-  mutate(cropped_fraction = as.numeric(1-cropped_area_m2/area_m2))
+PA <- st_read(paste(infolder, "/post1996_PAs_", subset, ".shp", sep=""), stringsAsFactors=FALSE)
+# rename attributes (st_write abbreviates these to match ESRI character limitations)
+names(PA) <- c("UnitName", "InReview", "CurDesType","CurDesAuth", "OriDesAuth", "CurDesYear", "AntiqYear", "area_m2", "area_ac", "DesMode", "clipped_area_m2", "clipped_area_ac", "clipped_fraction", "geometry")
 
 
 
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
-
 PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (required for extract function)
 inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile", "rich.natserv")  # rasters for which we want to calculate zonal stats
-
 for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
   start <- Sys.time()
-  zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, weights=TRUE)  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
+  zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, weights=TRUE, progress="window")  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
   prop.nonNA <- sapply(zonalvals, function(x) sum(x[which(is.na(x[,1])==FALSE),2]) / sum(x[,2]))  # get proportion of PA area that is non-NA (i.e., has value in raster layer)
   meanvals <- sapply(zonalvals, function(x) sum(apply(x, 1, prod),na.rm=T) / sum(x[,2],na.rm=T))   # calculate weighted mean (excluding NA cells)
   meanvals[which(prop.nonNA<0.9)] <- NA   # set mean val to NA for PAs with data available for <90% of their area
@@ -54,6 +55,9 @@ for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
   maxvals <- sapply(zonalvals, function(x) max(x[,1], na.rm=T))   # calculate max
   maxvals[which(prop.nonNA<0.9)] <- NA    # set max val to NA for PAs with data available for <90% of their area
   assign(paste("max",inputnames[i],sep="."),maxvals)   # write to output variable
+  minvals <- sapply(zonalvals, function(x) min(x[,1], na.rm=T))   # calculate min
+  minvals[which(prop.nonNA<0.9)] <- NA    # set min val to NA for PAs with data available for <90% of their area
+  assign(paste("min",inputnames[i],sep="."),minvals)   # write to output variable
   end <- Sys.time()
   process <- end - start   # calculate processing time
   print(paste0(i, "Process=", process))
@@ -71,17 +75,18 @@ temp.rich.fish <- st_intersection(rich.fish, PA) %>%  # intersect PAs and richne
   mutate(overlapProportion = intersectPolyArea/sumIntersectArea) %>% # get the proportion of the summed intersect areas associated with each intersect polygon (these are the "weights")
   mutate(weightedValue = overlapProportion * Join_Count) %>%  # weighted value = weight x richness value
   group_by(UnitName) %>%
-  summarise(weightedMean = sum(weightedValue), max=max(Join_Count), prop.nonNA=mean(sumIntersectArea)/mean(cropped_area_m2))  # get weighted mean, maximum, and proportion of the total PA area with non-NA values
+  summarise(weightedMean = sum(weightedValue), max=max(Join_Count), min=min(Join_Count), prop.nonNA=mean(sumIntersectArea)/mean(clipped_area_m2))  # get weighted mean, maximum, minimum, and proportion of the total PA area with non-NA values
 # for those PAs with less than 90% coverage of non-NA richness data, assign overall NA value
 temp.rich.fish$weightedMean[temp.rich.fish$prop.nonNA<0.9] <- NA
 temp.rich.fish$max[temp.rich.fish$prop.nonNA<0.9] <- NA
+temp.rich.fish$min[temp.rich.fish$prop.nonNA<0.9] <- NA
 # deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation
-rich.fish.df <- data.frame(UnitName=temp.rich.fish$UnitName, weightedMean=temp.rich.fish$weightedMean, max=temp.rich.fish$max, stringsAsFactors=FALSE) # create dataframe out of temp.rich.fish
+rich.fish.df <- data.frame(UnitName=temp.rich.fish$UnitName, weightedMean=temp.rich.fish$weightedMean, max=temp.rich.fish$max, min=temp.rich.fish$min, stringsAsFactors=FALSE) # create dataframe out of temp.rich.fish
 fish.PAnames <- rich.fish.df$UnitName  # get list of PA names in the richness output
 all.PAnames <- PA$UnitName  # get list of all PA names, including those missing from richness output
 '%notin%' <- function(x,y) !(x %in% y)
 missing.fish.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.fish.df$UnitName)]  # find PAs missing from richness output
-rich.fish.df.corrected <- data.frame(UnitName=c(rich.fish.df$UnitName, missing.fish.PAnames), mean.rich.fish=c(rich.fish.df$weightedMean, rep(NA, length(missing.fish.PAnames))), max.rich.fish=c(rich.fish.df$max, rep(NA, length(missing.fish.PAnames))))  # add missing PAs to new dataframe with NA for mean and max richness value
+rich.fish.df.corrected <- data.frame(UnitName=c(rich.fish.df$UnitName, missing.fish.PAnames), mean.rich.fish=c(rich.fish.df$weightedMean, rep(NA, length(missing.fish.PAnames))), max.rich.fish=c(rich.fish.df$max, rep(NA, length(missing.fish.PAnames))), min.rich.fish=c(rich.fish.df$min, rep(NA, length(missing.fish.PAnames))))  # add missing PAs to new dataframe with NA for mean, min, and max richness value
 
 # Amphibian richness
 temp.rich.amphib <- st_intersection(rich.amphib, PA) %>%  # intersect PAs and richness polygons
@@ -91,19 +96,20 @@ temp.rich.amphib <- st_intersection(rich.amphib, PA) %>%  # intersect PAs and ri
   mutate(overlapProportion = intersectPolyArea/sumIntersectArea) %>% # get the proportion of the summed intersect areas associated with each intersect polygon (these are the "weights")
   mutate(weightedValue = overlapProportion * Join_Count) %>%  # weighted value = weight x richness value
   group_by(UnitName) %>%
-  summarise(weightedMean = sum(weightedValue), max=max(Join_Count), prop.nonNA=mean(sumIntersectArea)/mean(cropped_area_m2))  # get weighted mean, maximum, and proportion of the total PA area with non-NA values
+  summarise(weightedMean = sum(weightedValue), max=max(Join_Count), min=min(Join_Count), prop.nonNA=mean(sumIntersectArea)/mean(clipped_area_m2))  # get weighted mean, maximum, and proportion of the total PA area with non-NA values
 # for those PAs with less than 90% coverage of non-NA richness data, assign overall NA value
 temp.rich.amphib$weightedMean[temp.rich.amphib$prop.nonNA<0.9] <- NA
 temp.rich.amphib$max[temp.rich.amphib$prop.nonNA<0.9] <- NA
+temp.rich.amphib$min[temp.rich.amphib$prop.nonNA<0.9] <- NA
 # deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation
-rich.amphib.df <- data.frame(UnitName=temp.rich.amphib$UnitName, weightedMean=temp.rich.amphib$weightedMean, max=temp.rich.amphib$max, stringsAsFactors=FALSE) # create dataframe out of temp.rich.amphib
+rich.amphib.df <- data.frame(UnitName=temp.rich.amphib$UnitName, weightedMean=temp.rich.amphib$weightedMean, max=temp.rich.amphib$max, min=temp.rich.amphib$min, stringsAsFactors=FALSE) # create dataframe out of temp.rich.amphib
 amphib.PAnames <- rich.amphib.df$UnitName  # get list of PA names in the richness output
 all.PAnames <- PA$UnitName  # get list of all PA names, including those missing from richness output
 '%notin%' <- function(x,y) !(x %in% y)
 missing.amphib.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.amphib.df$UnitName)]  # find PAs missing from richness output
-rich.amphib.df.corrected <- data.frame(UnitName=c(rich.amphib.df$UnitName, missing.amphib.PAnames), mean.rich.amphib=c(rich.amphib.df$weightedMean, rep(NA, length(missing.amphib.PAnames))), max.rich.amphib=c(rich.amphib.df$max, rep(NA, length(missing.amphib.PAnames))))  # add missing PAs to new dataframe with NA for mean and max richness value
+rich.amphib.df.corrected <- data.frame(UnitName=c(rich.amphib.df$UnitName, missing.amphib.PAnames), mean.rich.amphib=c(rich.amphib.df$weightedMean, rep(NA, length(missing.amphib.PAnames))), max.rich.amphib=c(rich.amphib.df$max, rep(NA, length(missing.amphib.PAnames))), min.rich.amphib=c(rich.amphib.df$min, rep(NA, length(missing.amphib.PAnames))))  # add missing PAs to new dataframe with NA for mean and max richness value
 
-
+save.image(file="C:/Users/Tyler/Desktop/natMon_zonal_stats_up_to_systems.RData")
 
 ### PA ZONAL STATS FOR ECOLOGICAL SYSTEM RICHNESS ###
 
@@ -162,16 +168,22 @@ names.by.fid <- PA$UnitName   # vector of unit names by FID
 reorder <- match(names.by.alpha, names.by.fid)  # order in which elements from raster extract outputs should appear to be alphabetically ordered
 mean.climate <- mean.climate[reorder]
 max.climate <- max.climate[reorder]
+min.climate <- min.climate[reorder]
 mean.rich.bird <- mean.rich.bird[reorder]
 max.rich.bird <- max.rich.bird[reorder]
+min.rich.bird <- min.rich.bird[reorder]
 mean.rich.mammal <- mean.rich.mammal[reorder]
 max.rich.mammal <- max.rich.mammal[reorder]
+min.rich.mammal <- min.rich.mammal[reorder]
 mean.rich.tree <- mean.rich.tree[reorder]
 max.rich.tree <- max.rich.tree[reorder]
+min.rich.tree <- min.rich.tree[reorder]
 mean.rich.reptile <- mean.rich.reptile[reorder]
 max.rich.reptile <- max.rich.reptile[reorder]
+min.rich.reptile <- min.rich.reptile[reorder]
 mean.rich.natserv <- mean.rich.natserv[reorder]
 max.rich.natserv <- max.rich.natserv[reorder]
+min.rich.natserv <- min.rich.natserv[reorder]
 system.richness.rare <- system.richness.rare[reorder]
 
 
@@ -180,7 +192,7 @@ system.richness.rare <- system.richness.rare[reorder]
 
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
 PA.df <- PA.df[order(PA.df$UnitName),]  # sort original dataframe alphabetically
-outputvars <- c("mean.climate","max.climate","mean.rich.bird", "max.rich.bird", "mean.rich.mammal", "max.rich.mammal", "mean.rich.tree", "max.rich.tree","mean.rich.reptile", "max.rich.reptile", "mean.rich.natserv", "max.rich.natserv", "system.richness.rare", "bailey.majority", "state.majority")  # vector of names of all output variables
+outputvars <- c("mean.climate","max.climate","min.climate","mean.rich.bird", "max.rich.bird", "min.rich.bird", "mean.rich.mammal", "max.rich.mammal", "min.rich.mammal", "mean.rich.tree", "max.rich.tree", "min.rich.tree", "mean.rich.reptile", "max.rich.reptile", "min.rich.reptile", "mean.rich.natserv", "max.rich.natserv", "min.rich.natserv", "system.richness.rare", "bailey.majority", "state.majority")  # vector of names of all output variables
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
@@ -188,6 +200,4 @@ names(PA.df)[(ncol(PA.df)-length(outputvars)+1):ncol(PA.df)] <- outputvars # giv
 rich.fish.amphib.df <- merge(rich.fish.df.corrected, rich.amphib.df.corrected, by="UnitName")
 PA.df <- merge(PA.df, rich.fish.amphib.df, by="UnitName")
 PA_zonal.df <- PA.df
-
-# output PA.df to workspace file
-save(PA_zonal.df, file=paste(infolder,"/PA_zonal_stats_10-22-17.RData", sep=""))
+save(PA_zonal.df, file=paste(infolder,"/post1996_", subset, "_PA_zonal_stats.RData", sep=""))  # output to workspace file

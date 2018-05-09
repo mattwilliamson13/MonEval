@@ -1,6 +1,18 @@
 # GRAPHICAL ANALYSIS OF BIOLOGICAL VARIABLES
 
 
+
+
+
+
+
+
+# IMPORTANT NOTE: I THINK I WANT TO GET RID OF THE Y SCALING ARGUMENT IN DENSITY PLOTS
+
+
+
+
+
 library(raster)
 library(sp)
 library(sf)
