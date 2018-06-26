@@ -22,7 +22,7 @@ infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # locatio
 
 ###################################################################################################################################################
 # specify which geographic subset you want to work with:
-subset <- "east"   # options are "lower48", "east", or "west"
+subset <- "lower48"   # options are "lower48", "east", or "west"
 ###################################################################################################################################################
 
 
@@ -104,9 +104,17 @@ save(lower48.PPA.climate.distvals, lower48.PPA.rich.bird.distvals, lower48.PPA.r
      file="C:/Users/Tyler/Desktop/per_unit_area_stats_5-8-18.RData")
 
 
+
+
+
+
+
+
 ### DENSITY PLOTS
 
-bandwidth.multiplier <- 7
+bandwidth.multiplier <- 5
+subset <- "lower48"
+load("C:/Users/Tyler/Desktop/per_unit_area_stats_5-8-18.RData")
 
 p1 <- ggplot() +   
   geom_density(aes(x=get(paste0(subset,".CPA.rich.bird.distvals")), col="first", fill="first"), alpha=0.35, size=1, adjust=bandwidth.multiplier) + 
