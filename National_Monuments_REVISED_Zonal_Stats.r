@@ -11,10 +11,14 @@ library(ggplot2)
 library(tidyverse)
 library(rvest)
 library(maptools)
-library(ggplot2)
 library(matrixStats)
+library(velox)
+library(doParallel)
+library(foreach)
+library(snow)
 
-infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # location on Tyler's Google Drive
+infolder <- "C:/Users/Tyler/Desktop/Monuments/GeneratedData"  # location on Tyler's Google Drive
+#infolder <- "C:/Users/Tyler/Google Drive/MonumentData/Generated Data"  # location on Tyler's Google Drive
 #infolder <- "D:/Data/MonumentData/Generated Data"  # location on Schwartz server (NEED TO ADD NEW PA LAYER AND NATURESERV RICHNESS RASTER)
 #rasterOptions(tmpdir = "D:/RastTemp/", progress="text", overwrite=TRUE)  # turn on progress bar for raster operations
 
@@ -52,29 +56,21 @@ PA.sp <- as(PA, "Spatial") # convert sf polygon layer to a spatial layer first (
 
 
 
-
-
 ### GET MEAN PERCENT IMPERVIOUS SURFACE FOR EACH PA
-# this won't run on Tyler's computer - use FARM or Schwartz server
-inputnames <- c("impervious")  # rasters for which we want to calculate zonal stats
-for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
-  start <- Sys.time()
-  zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, weights=TRUE, progress="window")  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
-  prop.nonNA <- sapply(zonalvals, function(x) sum(x[which(is.na(x[,1])==FALSE),2]) / sum(x[,2]))  # get proportion of PA area that is non-NA (i.e., has value in raster layer)
-  meanvals <- sapply(zonalvals, function(x) weightedMean(x[,1], x[,2], na.rm=TRUE))   # calculate weighted mean (excluding NA cells)
-  meanvals[which(prop.nonNA<0.9)] <- NA   # set mean val to NA for PAs with data available for <90% of their area
-  assign(paste("mean",inputnames[i],sep="."),meanvals)  # write to output variable
-  end <- Sys.time()
-  process <- end - start   # calculate processing time
-  print(paste0(i, "Process=", process))
-}
+# fast version that doesn't use weights (negligible effect because impervious raster pixel size, 30m) is very small relative to PA size)
+mean.impervious <- as.vector(raster::extract(impervious, y=PA.sp, fun=mean, na.rm=TRUE, progress="window"))
+
+# get number of natlandcover pixels associated with each PA (will tell me how many can be sampled in rarefaction for ecological systems richness)
+cell.count <- raster::extract(natlandcover, y=PA.sp, na.rm=TRUE, progress="window")
+cell.count.vect <- unlist(lapply(cell.count, length))
+write.csv(data.frame(PA$UnitName, cell.count.vect), "C:/Users/Tyler/Desktop/ecol_systems_cell_count.csv")
 
 
-
-#  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # add step here to filter out any PAs with too much impervious surface from PA and PA.sp
+# one complicating factor is that some PAs may contain only a few cells, making the rarefaction technique less helpful
 #  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+PA.keep <- PA[which(mean.impervious<50),]
 
 
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
@@ -83,16 +79,16 @@ for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
   start <- Sys.time()
   zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, weights=TRUE, progress="window")  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
   prop.nonNA <- sapply(zonalvals, function(x) sum(x[which(is.na(x[,1])==FALSE),2]) / sum(x[,2]))  # get proportion of PA area that is non-NA (i.e., has value in raster layer)
-  meanvals <- sapply(zonalvals, function(x) weightedMean(x[,1], x[,2], na.rm=TRUE))   # calculate weighted mean (excluding NA cells)
+  meanvals <- sapply(zonalvals, function(x) ifelse(sum(is.na(x[,1])==FALSE)==0, NA, weightedMean(x[,1], x[,2], na.rm=TRUE)))   # calculate weighted mean (excluding NA cells)
   meanvals[which(prop.nonNA<0.9)] <- NA   # set mean val to NA for PAs with data available for <90% of their area
   assign(paste("mean",inputnames[i],sep="."),meanvals)  # write to output variable
-  medianvals <- sapply(zonalvals, function(x) weightedMedian(x[,1], x[,2], na.rm=TRUE))
-  medianvals[which(prop.nonNA<0.9)] <- NA    # set median val to NA for PAs with data available for <90% of their area
-  assign(paste("median",inputnames[i],sep="."),maxvals)   # write to output variable
-  maxvals <- sapply(zonalvals, function(x) max(x[,1], na.rm=T))   # calculate max
+  #medianvals <- sapply(zonalvals, function(x) weightedMedian(x[,1], x[,2], na.rm=TRUE))
+  #medianvals[which(prop.nonNA<0.9)] <- NA    # set median val to NA for PAs with data available for <90% of their area
+  #assign(paste("median",inputnames[i],sep="."),maxvals)   # write to output variable
+  maxvals <- sapply(zonalvals, function(x) ifelse(sum(is.na(x[,1])==FALSE)==0, NA, max(x[,1], na.rm=TRUE))) # calculate max
   maxvals[which(prop.nonNA<0.9)] <- NA    # set max val to NA for PAs with data available for <90% of their area
   assign(paste("max",inputnames[i],sep="."),maxvals)   # write to output variable
-  minvals <- sapply(zonalvals, function(x) min(x[,1], na.rm=T))   # calculate min
+  minvals <- sapply(zonalvals, function(x) ifelse(sum(is.na(x[,1])==FALSE)==0, NA, min(x[,1], na.rm=TRUE)))# calculate min
   minvals[which(prop.nonNA<0.9)] <- NA    # set min val to NA for PAs with data available for <90% of their area
   assign(paste("min",inputnames[i],sep="."),minvals)   # write to output variable
   end <- Sys.time()
@@ -103,6 +99,8 @@ for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
 
 
 ### PA ZONAL STATS FOR ECOLOGICAL SYSTEM RICHNESS ###
+
+    # SKIP FOR NOW - CAN COME BACK TO THIS ONCE WE'VE FIGURED OUT WHICH PAs WE ARE EXCLUDING 
 
 # use rarefaction method to account for differences in PA area
 ecol.systems <- raster::extract(natlandcover, PA.sp, progress="window")  # list of ecological systems (by ID) within each PA
@@ -121,8 +119,6 @@ system.richness.rare <- rowMeans(richness.mat)  # calculate mean across samples 
 prop.nonNA <- lapply(ecol.systems, function(x) 1 - sum(is.na(x)) / length(x))
 system.richness[prop.nonNA<0.9] <- NA
 system.richness.rare[prop.nonNA<0.9] <- NA
-
-
 
 
 
@@ -171,14 +167,165 @@ all.PAnames <- PA$UnitName  # get list of all PA names, including those missing 
 missing.amphib.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.amphib.df$UnitName)]  # find PAs missing from richness output
 rich.amphib.df.corrected <- data.frame(UnitName=c(rich.amphib.df$UnitName, missing.amphib.PAnames), mean.rich.amphib=c(rich.amphib.df$weightedMean, rep(NA, length(missing.amphib.PAnames))), median.rich.amphib=c(rich.amphib.df$weightedMedian, rep(NA, length(missing.amphib.PAnames))), max.rich.amphib=c(rich.amphib.df$max, rep(NA, length(missing.amphib.PAnames))), min.rich.amphib=c(rich.amphib.df$min, rep(NA, length(missing.amphib.PAnames))))  # add missing PAs to new dataframe with NA for mean, min, and max richness value
 
-save.image(file="C:/Users/Tyler/Desktop/natMon_zonal_stats_up_to_systems.RData")
 
 
 
 
+# SOCIOPOLITICAL VARIABLE ZONAL STATS
+
+# buffer PAs by difference distances (units are m)
+PA.econproj <- st_transform(PA, proj4string(forestry.stack)) # reproject PA layer to match econ layers (much faster than the other way around)
+PA.buf10 <- st_buffer(PA.econproj, dist=10000)
+PA.buf20 <- st_buffer(PA.econproj, dist=20000)
+PA.buf50 <- st_buffer(PA.econproj, dist=50000)
+PA.buf100 <- st_buffer(PA.econproj, dist=100000)
+PA.buf250 <- st_buffer(PA.econproj, dist=250000)
+
+# clip buffers to lower48
+'%notin%' <- function(x,y) !(x %in% y)  #remove islands (HA, PR, VI) and AK, then dissolve
+states <- st_read(paste(infolder,"/states2.shp",sep="")) %>%
+  filter(STATE %notin% c("Hawaii","Puerto Rico","U.S. Virgin Islands", "Alaska"))
+lower48 <- st_union(states, by_feature=FALSE)# create outline polygon for lower 48 states
+lower48 <- st_transform(lower48, proj4string(forestry.stack))
+croplayernames <- c("PA.buf10", "PA.buf20", "PA.buf50", "PA.buf100", "PA.buf250")  # names of layers you want to crop
+lower48.sp <- as(lower48, "Spatial") # convert lower48 sf layer to sp (so extent can be extracted by crop function)
+for(k in 1:length(croplayernames)) {
+  sp.input <- as(get(croplayernames[k]), "Spatial")
+  temp <- raster::crop(sp.input, lower48.sp, progress = 'text')
+  assign(croplayernames[k], temp)
+}
+PA.buf.list <- list(PA.buf10, PA.buf20, PA.buf50, PA.buf100, PA.buf250) # combine buffer layers in a list
+bufdists <- c("10km", "20km", "50km", "100km", "250km")
+
+# Set up parallel processing
+UseCores <- detectCores() - 1   # number of cores (leave one open for other processing tasks)
+cl <- makeCluster(UseCores)  # initiate cluster
+registerDoParallel(cl)   # register cluster
 
 
+# FORESTRY: calculate mean, min, and max values for each PA (at each buffer level)
+forestry.stack <- stack(list.files("C:/Users/Tyler/Desktop/Monuments/GeneratedData/TimberRasters/", full.names=TRUE))  # read in annual forestry rasters as stacks
+forestry.out <- foreach(i=1:length(PA.buf.list), .packages=c("raster", "sf", "sp")) %dopar% {# loop through buffer distances (parallelize with foreach?)
+  PA.buf.select <- PA.buf.list[[i]]  # pull the correct buffered PA layer
+  out.df <- data.frame(mean.val=rep(NA,nrow(PA.buf.select)), min.val=rep(NA,nrow(PA.buf.select)), max.val=rep(NA,nrow(PA.buf.select)))
+  for(j in 1:length(PA.buf.select)){ # loop through individual PAs
+    PA.indiv.select <- PA.buf.select[j,] # pull the correct individual PA polygon
+    min.year <- as.numeric(PA.indiv.select$CurDesYear) - 8  # start year for assessing econ for selected PA
+    max.year <- min(2015,(as.numeric(PA.indiv.select$CurDesYear)-1))  # end year for assessing econ for select PA
+      # I used min argument in above line, because we only have econ data through 2015, so code would otherwise break for PAs designated in 2017
+    forestry.stack.subset <- subset(forestry.stack, subset=(min.year-1986):(max.year-1986))  # subset the stack to the appropriate set of 8 years
+    bbox <- extent(as(PA.indiv.select, "Spatial"))  # get bounding box for polygon
+    forestry.stack.subset.crop <- crop(forestry.stack.subset, bbox)  # crop stack to the minimum bounding box of the buffered polygon (will make following steps much faster)
+    mean.rast <- calc(forestry.stack.subset.crop, fun=mean) # calculate pixel-wise mean across the years in the stack
+    zonalvals <- unlist(raster::extract(x=mean.rast, y=PA.indiv.select))  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
+    prop.nonNA <- length(which(is.na(zonalvals)==FALSE)) / length(zonalvals)  # get proportion of PA area that is non-NA (i.e., has value in raster layer)
+    if(prop.nonNA>=0.9) {  # for PAs with >90% data coverage, calculate statistics
+      out.df$mean.val[j] <- ifelse(sum(is.na(zonalvals)==FALSE)==0, NA, mean(zonalvals, na.rm=TRUE)) 
+      out.df$min.val[j] <- ifelse(sum(is.na(zonalvals)==FALSE)==0, NA, min(zonalvals, na.rm=TRUE))
+      out.df$max.val[j] <- ifelse(sum(is.na(zonalvals)==FALSE)==0, NA, max(zonalvals, na.rm=TRUE))
+    }
+  }
+  return(out.df)
+}
+# output is a list of dataframes (one per PA buffer layer), with each dataframe giving the mean, min, and max forestry values for cells within each PA
+# convert dataframe to set of vectors with informative names
+for(i in 1:length(forestry.out)){ # loop through dataframes (one per buffer distance)
+  df <- forestry.out[[i]]
+  assign(paste0("mean.forestry.",bufdists[i],"Buffer"), df$mean.val)
+  assign(paste0("min.forestry.",bufdists[i],"Buffer"), df$min.val)
+  assign(paste0("max.forestry.",bufdists[i],"Buffer"), df$max.val)
+}
 
+
+# MINING: calculate mean, min, and max values for each PA (at each buffer level)
+mining.stack <- stack(list.files("C:/Users/Tyler/Desktop/Monuments/GeneratedData/MineRasters/MineRst/", full.names=TRUE))  # read in annual mining rasters as stack
+mining.out <- foreach(i=1:length(PA.buf.list), .packages=c("raster", "sf", "sp")) %dopar% {# loop through buffer distances (parallelize with foreach?)
+  PA.buf.select <- PA.buf.list[[i]]  # pull the correct buffered PA layer
+  out.df <- data.frame(mean.val=rep(NA,nrow(PA.buf.select)), min.val=rep(NA,nrow(PA.buf.select)), max.val=rep(NA,nrow(PA.buf.select)))
+  for(j in 1:length(PA.buf.select)){ # loop through individual PAs
+    PA.indiv.select <- PA.buf.select[j,] # pull the correct individual PA polygon
+    min.year <- as.numeric(PA.indiv.select$CurDesYear) - 8  # start year for assessing econ for selected PA
+    max.year <- min(2015,(as.numeric(PA.indiv.select$CurDesYear)-1))  # end year for assessing econ for select PA
+    # I used min argument in above line, because we only have econ data through 2015, so code would otherwise break for PAs designated in 2017
+    mining.stack.subset <- subset(mining.stack, subset=(min.year-1986):(max.year-1986))  # subset the stack to the appropriate set of 8 years
+    bbox <- extent(as(PA.indiv.select, "Spatial"))  # get bounding box for polygon
+    mining.stack.subset.crop <- crop(mining.stack.subset, bbox)  # crop stack to the minimum bounding box of the buffered polygon (will make following steps much faster)
+    mean.rast <- calc(mining.stack.subset.crop, fun=mean) # calculate pixel-wise mean across the years in the stack
+    zonalvals <- unlist(raster::extract(x=mean.rast, y=PA.indiv.select))  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
+    prop.nonNA <- length(which(is.na(zonalvals)==FALSE)) / length(zonalvals)  # get proportion of PA area that is non-NA (i.e., has value in raster layer)
+    if(prop.nonNA>=0.9) {  # for PAs with >90% data coverage, calculate statistics
+      out.df$mean.val[j] <- ifelse(sum(is.na(zonalvals)==FALSE)==0, NA, mean(zonalvals, na.rm=TRUE))
+      out.df$min.val[j] <- ifelse(sum(is.na(zonalvals)==FALSE)==0, NA, min(zonalvals, na.rm=TRUE))
+      out.df$max.val[j] <- ifelse(sum(is.na(zonalvals)==FALSE)==0, NA, max(zonalvals, na.rm=TRUE))
+    }
+  }
+  return(out.df)
+}
+# output is a list of dataframes (one per PA buffer layer), with each dataframe giving the mean, min, and max forestry values for cells within each PA
+# convert dataframe to set of vectors with informative names
+for(i in 1:length(mining.out)){ # loop through dataframes (one per buffer distance)
+  df <- mining.out[[i]]
+  assign(paste0("mean.mining.",bufdists[i],"Buffer"), df$mean.val)
+  assign(paste0("min.mining.",bufdists[i],"Buffer"), df$min.val)
+  assign(paste0("max.mining.",bufdists[i],"Buffer"), df$max.val)
+}
+
+
+# LCV: calculate mean, min, and max values for each PA (at each buffer level)
+# read in LCV rasters - need to change to have common extent before stacking
+lcv.names <- as.list(list.files("C:/Users/Tyler/Desktop/Monuments/GeneratedData/LCVRasters/", full.names=TRUE))
+lcv.rasters <- lapply(lcv.names, raster)
+# write function for getting maximum extent from list of rasters (to be called within for loop)
+getMaxExtent <- function(rasters) { 
+  extents <- sapply(rasters, FUN = function(x) {
+    raster::extent(x)
+  })
+  r <- raster(ext = extents[[1]], nrows = rasters[[1]]@nrows, ncols = rasters[[1]]@ncols)
+  max_extent <- sapply(extents, FUN = function(x) {
+    r <<- raster::extend(r, x)
+  })
+  raster::extent(r)
+}
+lcv.maxExtent <- getMaxExtent(lcv.rasters)  # get maximum extent
+lcv.rasters.extend <- lapply(lcv.rasters, function(x) {extend(x, lcv.maxExtent, value=NA)}) # extend all rasters to maximum extent to allow stacking
+LCV.stack <- stack(lcv.rasters.extend)  # stack mosaicked outputs with common extent
+
+LCV.out <- foreach(i=1:length(PA.buf.list), .packages=c("raster", "sf", "sp")) %do% {# parallel version maxes out HAL's memory, so use sequential version
+#LCV.out <- foreach(i=1:length(PA.buf.list), .packages=c("raster", "sf", "sp")) %dopar% {# loop through buffer distances (parallelize with foreach?)
+  PA.buf.select <- PA.buf.list[[i]]  # pull the correct buffered PA layer
+  out.df <- data.frame(mean.val=rep(NA,nrow(PA.buf.select)), min.val=rep(NA,nrow(PA.buf.select)), max.val=rep(NA,nrow(PA.buf.select)))
+  for(j in 1:length(PA.buf.select)){ # loop through individual PAs
+    PA.indiv.select <- PA.buf.select[j,] # pull the correct individual PA polygon
+    min.year <- as.numeric(PA.indiv.select$CurDesYear) - 8  # start year for assessing LCV for selected PA
+    max.year <- min(2016,(as.numeric(PA.indiv.select$CurDesYear)-1))  # end year for assessing LCV for select PA
+    # I used min argument in above line, because we only have LCV data through 2016, so code would otherwise break for PAs designated in 2017
+    LCV.stack.subset <- subset(LCV.stack, subset=(min.year-1971):(max.year-1971))  # subset the stack to the appropriate set of 8 years
+    bbox <- extent(as(PA.indiv.select, "Spatial"))  # get bounding box for polygon
+    LCV.stack.subset.crop <- crop(LCV.stack.subset, bbox)  # crop stack to the minimum bounding box of the buffered polygon (will make following steps much faster)
+    mean.rast <- calc(LCV.stack.subset.crop, fun=mean) # calculate pixel-wise mean across the years in the stack
+    zonalvals <- unlist(raster::extract(x=mean.rast, y=PA.indiv.select))  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
+    prop.nonNA <- length(which(is.na(zonalvals)==FALSE)) / length(zonalvals)  # get proportion of PA area that is non-NA (i.e., has value in raster layer)
+    if(prop.nonNA>=0.9) {  # for PAs with >90% data coverage, calculate statistics
+      out.df$mean.val[j] <- ifelse(sum(is.na(zonalvals)==FALSE)==0, NA, mean(zonalvals, na.rm=TRUE)) 
+      out.df$min.val[j] <- ifelse(sum(is.na(zonalvals)==FALSE)==0, NA, min(zonalvals, na.rm=TRUE))
+      out.df$max.val[j] <- ifelse(sum(is.na(zonalvals)==FALSE)==0, NA, max(zonalvals, na.rm=TRUE))
+    }
+    rm(LCV.stack.subset, bbox, LCV.stack.subset.crop, zonalvals, PA.indiv.select)
+    gc()
+  }
+  return(out.df)
+}
+# output is a list of dataframes (one per PA buffer layer), with each dataframe giving the mean, min, and max forestry values for cells within each PA
+# convert dataframe to set of vectors with informative names
+for(i in 1:length(LCV.out)){ # loop through dataframes (one per buffer distance)
+  df <- LCV.out[[i]]
+  assign(paste0("mean.LCV.",bufdists[i],"Buffer"), df$mean.val)
+  assign(paste0("min.LCV.",bufdists[i],"Buffer"), df$min.val)
+  assign(paste0("max.LCV.",bufdists[i],"Buffer"), df$max.val)
+}
+
+
+stopCluster(cl)
 
 
 ### REORDER OUTPUTS FROM RASTER OPERATIONS ALPHABETICALLY ###
@@ -188,32 +335,74 @@ names.by.alpha <- sort(PA$UnitName)  # alphabetical vector of unit names
 names.by.fid <- PA$UnitName   # vector of unit names by FID
 reorder <- match(names.by.alpha, names.by.fid)  # order in which elements from raster extract outputs should appear to be alphabetically ordered
 mean.climate <- mean.climate[reorder]
-median.climate <- median.climate[reorder]
 max.climate <- max.climate[reorder]
 min.climate <- min.climate[reorder]
 mean.rich.bird <- mean.rich.bird[reorder]
-median.rich.bird <- median.rich.bird[reorder]
 max.rich.bird <- max.rich.bird[reorder]
 min.rich.bird <- min.rich.bird[reorder]
 mean.rich.mammal <- mean.rich.mammal[reorder]
-median.rich.mammal <- median.rich.mammal[reorder]
 max.rich.mammal <- max.rich.mammal[reorder]
 min.rich.mammal <- min.rich.mammal[reorder]
 mean.rich.tree <- mean.rich.tree[reorder]
-median.rich.tree <- median.rich.tree[reorder]
 max.rich.tree <- max.rich.tree[reorder]
 min.rich.tree <- min.rich.tree[reorder]
 mean.rich.reptile <- mean.rich.reptile[reorder]
-median.rich.reptile <- median.rich.reptile[reorder]
 max.rich.reptile <- max.rich.reptile[reorder]
 min.rich.reptile <- min.rich.reptile[reorder]
 mean.rich.natserv <- mean.rich.natserv[reorder]
-median.rich.natserv <- median.rich.natserv[reorder]
 max.rich.natserv <- max.rich.natserv[reorder]
 min.rich.natserv <- min.rich.natserv[reorder]
-system.richness <- system.richness[reorder]
-system.richness.rare <- system.richness.rare[reorder]
 mean.impervious <- mean.impervious[reorder]
+mean.forestry.10kmBuffer <- mean.forestry.10kmBuffer[reorder]
+mean.forestry.20kmBuffer <- mean.forestry.20kmBuffer[reorder]
+mean.forestry.50kmBuffer <- mean.forestry.50kmBuffer[reorder]
+mean.forestry.100kmBuffer <- mean.forestry.100kmBuffer[reorder]
+mean.forestry.250kmBuffer <- mean.forestry.250kmBuffer[reorder]
+min.forestry.10kmBuffer <- min.forestry.10kmBuffer[reorder]
+min.forestry.20kmBuffer <- min.forestry.20kmBuffer[reorder]
+min.forestry.50kmBuffer <- min.forestry.50kmBuffer[reorder]
+min.forestry.100kmBuffer <- min.forestry.100kmBuffer[reorder]
+min.forestry.250kmBuffer <- min.forestry.250kmBuffer[reorder]
+max.forestry.10kmBuffer <- max.forestry.10kmBuffer[reorder]
+max.forestry.20kmBuffer <- max.forestry.20kmBuffer[reorder]
+max.forestry.50kmBuffer <- max.forestry.50kmBuffer[reorder]
+max.forestry.100kmBuffer <- max.forestry.100kmBuffer[reorder]
+max.forestry.250kmBuffer <- max.forestry.250kmBuffer[reorder]
+mean.mining.10kmBuffer <- mean.mining.10kmBuffer[reorder]
+mean.mining.20kmBuffer <- mean.mining.20kmBuffer[reorder]
+mean.mining.50kmBuffer <- mean.mining.50kmBuffer[reorder]
+mean.mining.100kmBuffer <- mean.mining.100kmBuffer[reorder]
+mean.mining.250kmBuffer <- mean.mining.250kmBuffer[reorder]
+min.mining.10kmBuffer <- min.mining.10kmBuffer[reorder]
+min.mining.20kmBuffer <- min.mining.20kmBuffer[reorder]
+min.mining.50kmBuffer <- min.mining.50kmBuffer[reorder]
+min.mining.100kmBuffer <- min.mining.100kmBuffer[reorder]
+min.mining.250kmBuffer <- min.mining.250kmBuffer[reorder]
+max.mining.10kmBuffer <- max.mining.10kmBuffer[reorder]
+max.mining.20kmBuffer <- max.mining.20kmBuffer[reorder]
+max.mining.50kmBuffer <- max.mining.50kmBuffer[reorder]
+max.mining.100kmBuffer <- max.mining.100kmBuffer[reorder]
+max.mining.250kmBuffer <- max.mining.250kmBuffer[reorder]
+mean.LCV.10kmBuffer <- mean.LCV.10kmBuffer[reorder]
+mean.LCV20kmBuffer <- mean.LCV.20kmBuffer[reorder]
+mean.LCV.50kmBuffer <- mean.LCV.50kmBuffer[reorder]
+mean.LCV.100kmBuffer <- mean.LCV.100kmBuffer[reorder]
+mean.LCV.250kmBuffer <- mean.LCV.250kmBuffer[reorder]
+min.LCV.10kmBuffer <- min.LCV.10kmBuffer[reorder]
+min.LCV.20kmBuffer <- min.LCV.20kmBuffer[reorder]
+min.LCV.50kmBuffer <- min.LCV.50kmBuffer[reorder]
+min.LCV.100kmBuffer <- min.LCV.100kmBuffer[reorder]
+min.LCV.250kmBuffer <- min.LCV.250kmBuffer[reorder]
+max.LCV.10kmBuffer <- max.LCV.10kmBuffer[reorder]
+max.LCV.20kmBuffer <- max.LCV.20kmBuffer[reorder]
+max.LCV.50kmBuffer <- max.LCV.50kmBuffer[reorder]
+max.LCV.100kmBuffer <- max.LCV.100kmBuffer[reorder]
+max.LCV.250kmBuffer <- max.LCV.250kmBuffer[reorder]
+
+# ADD MEAN SYSTEM RICHNESS LATER, ONCE WE FIGURE OUT WHICH PAs TO REMOVE
+#system.richness <- system.richness[reorder]
+#system.richness.rare <- system.richness.rare[reorder]
+
 
 
 
@@ -221,7 +410,28 @@ mean.impervious <- mean.impervious[reorder]
 
 PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
 PA.df <- PA.df[order(PA.df$UnitName),]  # sort original dataframe alphabetically
-outputvars <- c("mean.climate","median.climate", "max.climate", "min.climate", "mean.rich.bird", "median.rich.bird", "max.rich.bird", "min.rich.bird", "mean.rich.mammal", "median.rich.mammal", "max.rich.mammal", "min.rich.mammal", "mean.rich.tree", "median.rich.tree", "max.rich.tree", "min.rich.tree", "mean.rich.reptile", "median.rich.reptile", "max.rich.reptile", "min.rich.reptile", "mean.rich.natserv", "median.rich.natserv", "max.rich.natserv", "min.rich.natserv", "system.richness", "system.richness.rare", "mean.impervious")  # vector of names of all output variables
+
+outputvars <- c("mean.climate", "max.climate", "min.climate", "mean.rich.bird", "max.rich.bird", "min.rich.bird", "mean.rich.mammal", "max.rich.mammal", "min.rich.mammal", 
+                "mean.rich.tree", "max.rich.tree", "min.rich.tree", "mean.rich.reptile", "max.rich.reptile", "min.rich.reptile", "mean.rich.natserv", "max.rich.natserv", 
+                "min.rich.natserv", "mean.impervious", "mean.forestry.10kmBuffer", "min.forestry.10kmBuffer", "max.forestry.10kmBuffer",
+                "mean.forestry.20kmBuffer", "min.forestry.20kmBuffer", "max.forestry.20kmBuffer", "mean.forestry.50kmBuffer", "min.forestry.50kmBuffer", "max.forestry.50kmBuffer",
+                "mean.forestry.100kmBuffer", "min.forestry.100kmBuffer", "max.forestry.100kmBuffer", "mean.forestry.250kmBuffer", "min.forestry.250kmBuffer", "max.forestry.250kmBuffer",
+                "mean.mining.10kmBuffer", "min.mining.10kmBuffer", "max.mining.10kmBuffer", "mean.mining.20kmBuffer", "min.mining.20kmBuffer", "max.mining.20kmBuffer",
+                "mean.mining.50kmBuffer", "min.mining.50kmBuffer", "max.mining.50kmBuffer","mean.mining.100kmBuffer", "min.mining.100kmBuffer", "max.mining.100kmBuffer",
+                "mean.mining.250kmBuffer", "min.mining.250kmBuffer", "max.mining.250kmBuffer", "mean.LCV.10kmBuffer", "min.LCV.10kmBuffer", "max.LCV.10kmBuffer", "mean.LCV.20kmBuffer", "min.LCV.20kmBuffer", "max.LCV.20kmBuffer",
+                "mean.LCV.50kmBuffer", "min.LCV.50kmBuffer", "max.LCV.50kmBuffer", "mean.LCV.100kmBuffer", "min.LCV.100kmBuffer", "max.LCV.100kmBuffer", "mean.LCV.250kmBuffer", "min.LCV.250kmBuffer", "max.LCV.250kmBuffer")  # vector of names of all output variables
+
+# ADD SYSTEM RICHNESS LATER, ONCE WE FIGURE OUT WHICH PAs TO REMOVE
+#outputvars <- c("mean.climate","max.climate", "min.climate", "mean.rich.bird", "max.rich.bird", "min.rich.bird", "mean.rich.mammal", "max.rich.mammal", "min.rich.mammal", 
+#                "mean.rich.tree", "max.rich.tree", "min.rich.tree", "mean.rich.reptile", "max.rich.reptile", "min.rich.reptile", "mean.rich.natserv", "max.rich.natserv", 
+#                "min.rich.natserv", "system.richness", "system.richness.rare", "mean.impervious", "mean.forestry.10kmBuffer", "min.forestry.10kmBuffer", "max.forestry.10kmBuffer",
+#                "mean.forestry.20kmBuffer", "min.forestry.20kmBuffer", "max.forestry.20kmBuffer", "mean.forestry.50kmBuffer", "min.forestry.50kmBuffer", "max.forestry.50kmBuffer",
+#                "mean.forestry.100kmBuffer", "min.forestry.100kmBuffer", "max.forestry.100kmBuffer", "mean.forestry.250kmBuffer", "min.forestry.250kmBuffer", "max.forestry.250kmBuffer",
+#                "mean.mining.10kmBuffer", "min.mining.10kmBuffer", "max.mining.10kmBuffer", "mean.mining.20kmBuffer", "min.mining.20kmBuffer", "max.mining.20kmBuffer",
+#                "mean.mining.50kmBuffer", "min.mining.50kmBuffer", "max.mining.50kmBuffer","mean.mining.100kmBuffer", "min.mining.100kmBuffer", "max.mining.100kmBuffer",
+#                "mean.mining.250kmBuffer", "min.mining.250kmBuffer", "max.mining.250kmBuffer", "mean.LCV.10kmBuffer", "min.LCV.10kmBuffer", "max.LCV.10kmBuffer", "mean.LCV.20kmBuffer", "min.LCV.20kmBuffer", "max.LCV.20kmBuffer",
+#                "mean.LCV.50kmBuffer", "min.LCV.50kmBuffer", "max.LCV.50kmBuffer", "mean.LCV.100kmBuffer", "min.LCV.100kmBuffer", "max.LCV.100kmBuffer", "mean.LCV.250kmBuffer", "min.LCV.250kmBuffer", "max.LCV.250kmBuffer")  # vector of names of all output variables
+
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
 }
@@ -229,4 +439,5 @@ names(PA.df)[(ncol(PA.df)-length(outputvars)+1):ncol(PA.df)] <- outputvars # giv
 rich.fish.amphib.df <- merge(rich.fish.df.corrected, rich.amphib.df.corrected, by="UnitName")
 PA.df <- merge(PA.df, rich.fish.amphib.df, by="UnitName")
 PA_zonal.df <- PA.df
-save(PA_zonal.df, file=paste(infolder,"/post1996_", subset, "_PA_zonal_stats_5-10-18.RData", sep=""))  # output to workspace file
+write.csv(PA_zonal.df, "C:/Users/Tyler/Desktop/PA_zonal_stats_post1996_lower48_28Oct2018.csv")
+save(PA_zonal.df, file="C:/Users/Tyler/Desktop/PA_zonal_stats_post1996_lower48_28Oct2018.RData")  # output to workspace file
