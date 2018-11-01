@@ -40,12 +40,8 @@ rich.fish <- st_read(paste(infolder, "/rich.fish.shp", sep=""), stringsAsFactors
 rich.amphib <- st_read(paste(infolder, "/rich.amphib.shp", sep=""), stringsAsFactors=FALSE)
 rich.natserv <- raster(paste(infolder, "/natserv.tif", sep=""))  # rarity weighted richness from NatureServ
 
-# NEED TO: 
-  # use Arc to reclassify new GAP ecological systems layer (turn zeros to NoData, and possible turn developed cover types to NoData)
-  # upload reclassified layer to Drive
-  # replace filepath below
-natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))  
-
+#natlandcover <- raster(paste(infolder, "/natlandcover.tif", sep=""))  # don't use this version - I converted all developed, recently modified, or agricultural cover types to NA, but I don't think I actually want to do that 
+natlandcover <- raster("C:/Users/Tyler/Desktop/Monuments/GeneratedData/gap_landfire_nationalterrestrialecosystems2011/gap_landfire_nationalterrestrialecosystems2011.tif")
 impervious <- raster(paste(infolder, "/impervious.tif", sep=""))
 climate <- raster(paste(infolder, "/climate.tif", sep=""))
 PA <- st_read(paste(infolder, "/post1996_PAs_", subset, ".shp", sep=""), stringsAsFactors=FALSE)
@@ -63,21 +59,29 @@ mean.impervious <- as.vector(raster::extract(impervious, y=PA.sp, fun=mean, na.r
 # get number of natlandcover pixels associated with each PA (will tell me how many can be sampled in rarefaction for ecological systems richness)
 cell.count <- raster::extract(natlandcover, y=PA.sp, na.rm=TRUE, progress="window")
 cell.count.vect <- unlist(lapply(cell.count, length))
-write.csv(data.frame(PA$UnitName, cell.count.vect), "C:/Users/Tyler/Desktop/ecol_systems_cell_count.csv")
+#write.csv(data.frame(PA$UnitName, cell.count.vect), "C:/Users/Tyler/Desktop/ecol_systems_cell_count.csv")
 
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# add step here to filter out any PAs with too much impervious surface from PA and PA.sp
-# one complicating factor is that some PAs may contain only a few cells, making the rarefaction technique less helpful
-#  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-PA.keep <- PA[which(mean.impervious<50),]
+# remove PAs that have too much impervious surface or are Redesignated PAs
+# currently, the next line removes all PAs with >1/3 impervious surface
+impervious.discards <- c("First Ladies National Historic Site", "New Bedford Whaling National Historical Park", "Stonewall National Monument", # list of PAs with >
+              "Carter G. Woodson National Historic Site", "Pullman National Monument", "Birmingham Civil Rights National Monument",
+              "Belmont-Paul Women's Equality National Monument", "Little Rock Central High School National Historic Site",
+              "President William Jefferson Clinton Birthplace Home National Historic Site", "Manhattan Project National Historical Park", 
+              "African Burial Ground National Monument", "Ronald Reagan Boyhood Home National Historic Site")
+desmode.discards <- c("Pinnacles National Park", "Great Sand Dunes National Park", "Great Sand Dunes National Preserve", "Black Canyon of the Gunnison National Park", 
+                      "First State National Historical Park", "Harriet Tubman Underground Railroad National Historical Park")
+discards <- c(impervious.discards, desmode.discards)
+PA.keep <- PA[-which(PA$UnitName %in% discards),]  # remove PAs with > one third impervious surface
+PA.discard <- PA[which(PA$UnitName %in% discards),]
+PA.keep.sp <- as(PA.keep, "Spatial")
 
 
 ### PA ZONAL STATISTICS FOR RASTER INPUTS ###
 inputnames <- c("climate", "rich.bird", "rich.mammal", "rich.tree", "rich.reptile", "rich.natserv")  # rasters for which we want to calculate zonal stats
 for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
   start <- Sys.time()
-  zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.sp, weights=TRUE, progress="window")  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
+  zonalvals <- raster::extract(x=get(inputnames[i]), y=PA.keep.sp, weights=TRUE, progress="window")  # extract raster values and weights (e.g., cell area proportions) within each PA polygon
   prop.nonNA <- sapply(zonalvals, function(x) sum(x[which(is.na(x[,1])==FALSE),2]) / sum(x[,2]))  # get proportion of PA area that is non-NA (i.e., has value in raster layer)
   meanvals <- sapply(zonalvals, function(x) ifelse(sum(is.na(x[,1])==FALSE)==0, NA, weightedMean(x[,1], x[,2], na.rm=TRUE)))   # calculate weighted mean (excluding NA cells)
   meanvals[which(prop.nonNA<0.9)] <- NA   # set mean val to NA for PAs with data available for <90% of their area
@@ -100,13 +104,11 @@ for(i in 1:length(inputnames)) {  # calculate zonal stats for each input raster
 
 ### PA ZONAL STATS FOR ECOLOGICAL SYSTEM RICHNESS ###
 
-    # SKIP FOR NOW - CAN COME BACK TO THIS ONCE WE'VE FIGURED OUT WHICH PAs WE ARE EXCLUDING 
-
 # use rarefaction method to account for differences in PA area
-ecol.systems <- raster::extract(natlandcover, PA.sp, progress="window")  # list of ecological systems (by ID) within each PA
-system.richness <- as.numeric(lapply(ecol.systems, function(x) length(unique(x)))) # calculate raw number of ecological systems (i.e., without controlling for PA area)
+ecol.systems <- raster::extract(natlandcover, PA.keep.sp, progress="window")  # list of ecological systems (by ID) within each PA
+system.richness <- as.numeric(lapply(ecol.systems, function(x) length(unique(x[is.na(x)==FALSE])))) # calculate raw number of ecological systems (i.e., without controlling for PA area)
+mincells <- min(unlist(lapply(ecol.systems, function(x) length(x[is.na(x)==FALSE]))))  # get smallest number of non-NA cells within a PA
 nsamples <- 1000  # number of random samples you want to use for rarefaction
-mincells <- min(as.numeric(lapply(ecol.systems, function(x) length(x) - sum(is.na(x)))))  # get smallest number of non-NA cells within a PA
 richness.mat <- matrix(nrow=length(ecol.systems), ncol=nsamples) # preallocate matrix to hold means of sample
 for(i in 1:nsamples) {  # loop through 1000 random samples
   sample.data <- lapply(ecol.systems, function(x) sample(x[is.na(x)==FALSE], size=mincells, replace=FALSE))  # sample mincells (without replacement) from non-NA values for each PA
@@ -114,19 +116,16 @@ for(i in 1:nsamples) {  # loop through 1000 random samples
   richness.mat[,i] <- sample.richness  # write richness values for sample i to matrix
 }
 system.richness.rare <- rowMeans(richness.mat)  # calculate mean across samples for each PA
-
 # set richness value to NA for PAs with <90 percent non-NA data
 prop.nonNA <- lapply(ecol.systems, function(x) 1 - sum(is.na(x)) / length(x))
 system.richness[prop.nonNA<0.9] <- NA
 system.richness.rare[prop.nonNA<0.9] <- NA
 
 
-
-
 ### PA ZONAL STATISTICS FOR VECTOR INPUTS ###
 
 # Fish richness
-temp.rich.fish <- st_intersection(rich.fish, PA) %>%  # intersect PAs and richness polygons
+temp.rich.fish <- st_intersection(rich.fish, PA.keep) %>%  # intersect PAs and richness polygons
   mutate(intersectPolyArea =  as.numeric(st_area(geometry))) %>%  # calculate areas of intersection polygons
   group_by(UnitName) %>%  # group intersection polygons by PA
   mutate(sumIntersectArea = sum(intersectPolyArea)) %>% # get the sum of intersect polygon areas associated with each PA (could be different than PA area because of missing data (e.g., watersheds with no fish richness))
@@ -141,13 +140,13 @@ temp.rich.fish$min[temp.rich.fish$prop.nonNA<0.9] <- NA
 # deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation
 rich.fish.df <- data.frame(UnitName=temp.rich.fish$UnitName, weightedMean=temp.rich.fish$weightedMean, weightedMedian=temp.rich.fish$weightedMedian, max=temp.rich.fish$max, min=temp.rich.fish$min, stringsAsFactors=FALSE) # create dataframe out of temp.rich.fish
 fish.PAnames <- rich.fish.df$UnitName  # get list of PA names in the richness output
-all.PAnames <- PA$UnitName  # get list of all PA names, including those missing from richness output
+all.PAnames <- PA.keep$UnitName  # get list of all PA names, including those missing from richness output
 '%notin%' <- function(x,y) !(x %in% y)
-missing.fish.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.fish.df$UnitName)]  # find PAs missing from richness output
+missing.fish.PAnames <- PA.keep$UnitName[which(PA.keep$UnitName %notin% rich.fish.df$UnitName)]  # find PAs missing from richness output
 rich.fish.df.corrected <- data.frame(UnitName=c(rich.fish.df$UnitName, missing.fish.PAnames), mean.rich.fish=c(rich.fish.df$weightedMean, rep(NA, length(missing.fish.PAnames))), median.rich.fish=c(rich.fish.df$weightedMedian, rep(NA, length(missing.fish.PAnames))), max.rich.fish=c(rich.fish.df$max, rep(NA, length(missing.fish.PAnames))), min.rich.fish=c(rich.fish.df$min, rep(NA, length(missing.fish.PAnames))))  # add missing PAs to new dataframe with NA for mean, min, and max richness value
 
 # Amphibian richness
-temp.rich.amphib <- st_intersection(rich.amphib, PA) %>%  # intersect PAs and richness polygons
+temp.rich.amphib <- st_intersection(rich.amphib, PA.keep) %>%  # intersect PAs and richness polygons
   mutate(intersectPolyArea =  as.numeric(st_area(geometry))) %>%  # calculate areas of intersection polygons
   group_by(UnitName) %>%  # group intersection polygons by PA
   mutate(sumIntersectArea = sum(intersectPolyArea)) %>% # get the sum of intersect polygon areas associated with each PA (could be different than PA area because of missing data (e.g., watersheds with no amphib richness))
@@ -162,9 +161,9 @@ temp.rich.amphib$min[temp.rich.amphib$prop.nonNA<0.9] <- NA
 # deal with PAs that overlap blank spots in richness map, and are therefore not represented in results of above richness calculation
 rich.amphib.df <- data.frame(UnitName=temp.rich.amphib$UnitName, weightedMean=temp.rich.amphib$weightedMean, weightedMedian=temp.rich.amphib$weightedMedian, max=temp.rich.amphib$max, min=temp.rich.amphib$min, stringsAsFactors=FALSE) # create dataframe out of temp.rich.amphib
 amphib.PAnames <- rich.amphib.df$UnitName  # get list of PA names in the richness output
-all.PAnames <- PA$UnitName  # get list of all PA names, including those missing from richness output
+all.PAnames <- PA.keep$UnitName  # get list of all PA names, including those missing from richness output
 '%notin%' <- function(x,y) !(x %in% y)
-missing.amphib.PAnames <- PA$UnitName[which(PA$UnitName %notin% rich.amphib.df$UnitName)]  # find PAs missing from richness output
+missing.amphib.PAnames <- PA.keep$UnitName[which(PA.keep$UnitName %notin% rich.amphib.df$UnitName)]  # find PAs missing from richness output
 rich.amphib.df.corrected <- data.frame(UnitName=c(rich.amphib.df$UnitName, missing.amphib.PAnames), mean.rich.amphib=c(rich.amphib.df$weightedMean, rep(NA, length(missing.amphib.PAnames))), median.rich.amphib=c(rich.amphib.df$weightedMedian, rep(NA, length(missing.amphib.PAnames))), max.rich.amphib=c(rich.amphib.df$max, rep(NA, length(missing.amphib.PAnames))), min.rich.amphib=c(rich.amphib.df$min, rep(NA, length(missing.amphib.PAnames))))  # add missing PAs to new dataframe with NA for mean, min, and max richness value
 
 
@@ -174,7 +173,7 @@ rich.amphib.df.corrected <- data.frame(UnitName=c(rich.amphib.df$UnitName, missi
 # SOCIOPOLITICAL VARIABLE ZONAL STATS
 
 # buffer PAs by difference distances (units are m)
-PA.econproj <- st_transform(PA, proj4string(forestry.stack)) # reproject PA layer to match econ layers (much faster than the other way around)
+PA.econproj <- st_transform(PA.keep, proj4string(forestry.stack)) # reproject PA layer to match econ layers (much faster than the other way around)
 PA.buf10 <- st_buffer(PA.econproj, dist=10000)
 PA.buf20 <- st_buffer(PA.econproj, dist=20000)
 PA.buf50 <- st_buffer(PA.econproj, dist=50000)
@@ -331,8 +330,8 @@ stopCluster(cl)
 ### REORDER OUTPUTS FROM RASTER OPERATIONS ALPHABETICALLY ###
 
 # Output variables from raster extract are sorted by FID, but outputs from sp operations were sorted alphabetically because the dplyr function "group_by" was used and it automatically alphabetizes results
-names.by.alpha <- sort(PA$UnitName)  # alphabetical vector of unit names
-names.by.fid <- PA$UnitName   # vector of unit names by FID
+names.by.alpha <- sort(PA.keep$UnitName)  # alphabetical vector of unit names
+names.by.fid <- PA.keep$UnitName   # vector of unit names by FID
 reorder <- match(names.by.alpha, names.by.fid)  # order in which elements from raster extract outputs should appear to be alphabetically ordered
 mean.climate <- mean.climate[reorder]
 max.climate <- max.climate[reorder]
@@ -398,39 +397,26 @@ max.LCV.20kmBuffer <- max.LCV.20kmBuffer[reorder]
 max.LCV.50kmBuffer <- max.LCV.50kmBuffer[reorder]
 max.LCV.100kmBuffer <- max.LCV.100kmBuffer[reorder]
 max.LCV.250kmBuffer <- max.LCV.250kmBuffer[reorder]
-
-# ADD MEAN SYSTEM RICHNESS LATER, ONCE WE FIGURE OUT WHICH PAs TO REMOVE
-#system.richness <- system.richness[reorder]
-#system.richness.rare <- system.richness.rare[reorder]
+system.richness <- system.richness[reorder]
+system.richness.rare <- system.richness.rare[reorder]
 
 
 
 
 ### COMBINE OUTPUT VARIABLES IN A SINGLE DATAFRAME AND SAVE TO DRIVE ###
 
-PA.df <- tbl_df(PA)[,-ncol(PA)]  # convert to a tbl object (and strip out geometry field)
+PA.df <- tbl_df(PA.keep)[,-ncol(PA.keep)]  # convert to a tbl object (and strip out geometry field)
 PA.df <- PA.df[order(PA.df$UnitName),]  # sort original dataframe alphabetically
 
 outputvars <- c("mean.climate", "max.climate", "min.climate", "mean.rich.bird", "max.rich.bird", "min.rich.bird", "mean.rich.mammal", "max.rich.mammal", "min.rich.mammal", 
                 "mean.rich.tree", "max.rich.tree", "min.rich.tree", "mean.rich.reptile", "max.rich.reptile", "min.rich.reptile", "mean.rich.natserv", "max.rich.natserv", 
-                "min.rich.natserv", "mean.impervious", "mean.forestry.10kmBuffer", "min.forestry.10kmBuffer", "max.forestry.10kmBuffer",
+                "min.rich.natserv", "system.richness", "system.richness.rare", "mean.impervious", "mean.forestry.10kmBuffer", "min.forestry.10kmBuffer", "max.forestry.10kmBuffer",
                 "mean.forestry.20kmBuffer", "min.forestry.20kmBuffer", "max.forestry.20kmBuffer", "mean.forestry.50kmBuffer", "min.forestry.50kmBuffer", "max.forestry.50kmBuffer",
                 "mean.forestry.100kmBuffer", "min.forestry.100kmBuffer", "max.forestry.100kmBuffer", "mean.forestry.250kmBuffer", "min.forestry.250kmBuffer", "max.forestry.250kmBuffer",
                 "mean.mining.10kmBuffer", "min.mining.10kmBuffer", "max.mining.10kmBuffer", "mean.mining.20kmBuffer", "min.mining.20kmBuffer", "max.mining.20kmBuffer",
                 "mean.mining.50kmBuffer", "min.mining.50kmBuffer", "max.mining.50kmBuffer","mean.mining.100kmBuffer", "min.mining.100kmBuffer", "max.mining.100kmBuffer",
                 "mean.mining.250kmBuffer", "min.mining.250kmBuffer", "max.mining.250kmBuffer", "mean.LCV.10kmBuffer", "min.LCV.10kmBuffer", "max.LCV.10kmBuffer", "mean.LCV.20kmBuffer", "min.LCV.20kmBuffer", "max.LCV.20kmBuffer",
                 "mean.LCV.50kmBuffer", "min.LCV.50kmBuffer", "max.LCV.50kmBuffer", "mean.LCV.100kmBuffer", "min.LCV.100kmBuffer", "max.LCV.100kmBuffer", "mean.LCV.250kmBuffer", "min.LCV.250kmBuffer", "max.LCV.250kmBuffer")  # vector of names of all output variables
-
-# ADD SYSTEM RICHNESS LATER, ONCE WE FIGURE OUT WHICH PAs TO REMOVE
-#outputvars <- c("mean.climate","max.climate", "min.climate", "mean.rich.bird", "max.rich.bird", "min.rich.bird", "mean.rich.mammal", "max.rich.mammal", "min.rich.mammal", 
-#                "mean.rich.tree", "max.rich.tree", "min.rich.tree", "mean.rich.reptile", "max.rich.reptile", "min.rich.reptile", "mean.rich.natserv", "max.rich.natserv", 
-#                "min.rich.natserv", "system.richness", "system.richness.rare", "mean.impervious", "mean.forestry.10kmBuffer", "min.forestry.10kmBuffer", "max.forestry.10kmBuffer",
-#                "mean.forestry.20kmBuffer", "min.forestry.20kmBuffer", "max.forestry.20kmBuffer", "mean.forestry.50kmBuffer", "min.forestry.50kmBuffer", "max.forestry.50kmBuffer",
-#                "mean.forestry.100kmBuffer", "min.forestry.100kmBuffer", "max.forestry.100kmBuffer", "mean.forestry.250kmBuffer", "min.forestry.250kmBuffer", "max.forestry.250kmBuffer",
-#                "mean.mining.10kmBuffer", "min.mining.10kmBuffer", "max.mining.10kmBuffer", "mean.mining.20kmBuffer", "min.mining.20kmBuffer", "max.mining.20kmBuffer",
-#                "mean.mining.50kmBuffer", "min.mining.50kmBuffer", "max.mining.50kmBuffer","mean.mining.100kmBuffer", "min.mining.100kmBuffer", "max.mining.100kmBuffer",
-#                "mean.mining.250kmBuffer", "min.mining.250kmBuffer", "max.mining.250kmBuffer", "mean.LCV.10kmBuffer", "min.LCV.10kmBuffer", "max.LCV.10kmBuffer", "mean.LCV.20kmBuffer", "min.LCV.20kmBuffer", "max.LCV.20kmBuffer",
-#                "mean.LCV.50kmBuffer", "min.LCV.50kmBuffer", "max.LCV.50kmBuffer", "mean.LCV.100kmBuffer", "min.LCV.100kmBuffer", "max.LCV.100kmBuffer", "mean.LCV.250kmBuffer", "min.LCV.250kmBuffer", "max.LCV.250kmBuffer")  # vector of names of all output variables
 
 for(i in 1:length(outputvars)){  # add each output variables as a new column in dataframe
   PA.df <- data.frame(PA.df, get(outputvars[i]))
@@ -439,5 +425,5 @@ names(PA.df)[(ncol(PA.df)-length(outputvars)+1):ncol(PA.df)] <- outputvars # giv
 rich.fish.amphib.df <- merge(rich.fish.df.corrected, rich.amphib.df.corrected, by="UnitName")
 PA.df <- merge(PA.df, rich.fish.amphib.df, by="UnitName")
 PA_zonal.df <- PA.df
-write.csv(PA_zonal.df, "C:/Users/Tyler/Desktop/PA_zonal_stats_post1996_lower48_28Oct2018.csv")
-save(PA_zonal.df, file="C:/Users/Tyler/Desktop/PA_zonal_stats_post1996_lower48_28Oct2018.RData")  # output to workspace file
+#write.csv(PA_zonal.df, "C:/Users/Tyler/Desktop/PA_zonal_stats_post1996_lower48_28Oct2018.csv")
+#save(PA_zonal.df, file="C:/Users/Tyler/Desktop/PA_zonal_stats_post1996_lower48_28Oct2018.RData")  # output to workspace file
